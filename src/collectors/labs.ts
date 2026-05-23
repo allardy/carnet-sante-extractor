@@ -6,10 +6,10 @@ import { type Collector, type DocumentDescriptor, type DomainResult } from './ty
 
 const BASE = 'https://ais-passerelle-autorisation-api.ramq.gouv.qc.ca/api/1'
 
-// Tuned down from the SPA's 7-year sweep while we iterate on the rest of the pipeline — the
-// first full extraction has already pulled the historical data, so subsequent runs only need
-// to catch new items. Bump back to 7 once imaging + output are stable, OR make this configurable.
-const LABS_HISTORY_YEARS = 1
+// Matches the SPA's full sweep. The Prelevements endpoint expects per-year queries (it returns
+// nothing for the current rolling year if the citizen's labs are older — see the phase2 endpoint
+// map), so we fan out one DateDebut/DateFin request per calendar year and flatten the results.
+const LABS_HISTORY_YEARS = 7
 
 export const labsCollector: Collector = {
   domain: 'labs',
