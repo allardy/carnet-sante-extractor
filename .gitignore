@@ -11,10 +11,10 @@ release
 coverage
 
 # ── health data + live session — NEVER commit ──
-output/
-recon/
-raw/
-.auth/
+/output/
+/recon/
+/raw/
+/.auth/
 
 # misc
 .DS_Store

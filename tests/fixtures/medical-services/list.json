@@ -1,0 +1,11 @@
+[
+  {
+    "Id": "SVC0001",
+    "DateService": "2026-04-10T00:00:00-04:00",
+    "Description": "Consultation generale",
+    "Etablissement": "Clinique Example",
+    "Specialite": "Omnipraticien",
+    "Montant": 125.5,
+    "Statut": "Paye"
+  }
+]

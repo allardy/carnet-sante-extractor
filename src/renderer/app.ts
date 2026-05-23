@@ -37,3 +37,23 @@ window.api.onProgress((payload) => {
     toggleEl.disabled = false
   }
 })
+
+const extractEl = document.querySelector<HTMLButtonElement>('#extract')!
+let extracting = false
+
+extractEl.addEventListener('click', () => {
+  if (extracting) {
+    void window.api.stopExtract()
+  } else {
+    void window.api.startExtract()
+  }
+})
+
+window.api.onExtractProgress((payload) => {
+  extracting = payload.phase === 'running' || payload.phase === 'normalizing' || payload.phase === 'writing'
+  extractEl.textContent = extracting ? 'Stop extract' : 'Extract everything'
+
+  const tail = payload.currentDomain ? ` — ${payload.currentDomain}` : ''
+
+  statusEl.textContent = `extract: ${payload.phase} (${payload.domainsDone}/${payload.domainsTotal})${tail}`
+})

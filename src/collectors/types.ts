@@ -1,15 +1,16 @@
 import { type CaptureStore } from '../capture/store.js'
 import { type Domain } from '../config.js'
 
-// Backed in Phase 3 by an Electron WebContents adapter; collectors only see this interface.
 export type Navigator = {
   goto: (pathOrUrl: string) => Promise<void>
-  waitForJson: (match: (url: string) => boolean, timeoutMs?: number) => Promise<unknown>
+  waitForJson: <T = unknown>(match: (url: string) => boolean, timeoutMs?: number) => Promise<T>
+  fetchJson: <T = unknown>(url: string) => Promise<T>
 }
 
 export type CollectContext = {
   nav: Navigator
   capture: CaptureStore
+  citizenId: string
 }
 
 export type DocumentDescriptor = {
@@ -22,7 +23,7 @@ export type DocumentDescriptor = {
 
 export type DomainResult = {
   domain: Domain
-  raw: unknown[]
+  raw: unknown
   documents: DocumentDescriptor[]
 }
 

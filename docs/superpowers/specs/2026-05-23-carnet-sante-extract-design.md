@@ -1,7 +1,7 @@
 # carnet-sante-extract — Design
 
 **Date:** 2026-05-23
-**Status:** Approved → Phase 1 implemented; Phase 2/3 follow.
+**Status:** Approved → Phase 1/2/3 implemented (2026-05-23). Phase 4 (vaccines via Carnet de vaccination) optional and out of scope for this app.
 
 ## Problem
 
@@ -108,29 +108,30 @@ electron-builder.yml    # win nsis target, appId, productName
 
 ## Output structure
 
-Written to `~/Documents/carnet-sante-extract/`:
+Written to `~/carnet-sante-extract/`:
 
 ```
-raw/
+raw/<ISO-timestamp>/
   responses/   captured JSON (one file per response) + index.json
-  documents/   downloaded PDFs (Phase 1 names them by URL slug)
+  documents/   downloaded PDFs (one folder per capture/extract run)
 
-output/        (Phase 3)
+output/
   documents/   renamed PDFs organized by type (laboratoire/, imagerie/, ...)
   data/        clean structured JSON, one file per domain
   markdown/    per-domain rollups + summary.md
   manifest.json
+  summary.md
 ```
 
 `raw/` is the re-normalization source: Phase 3 can re-run normalize/output entirely offline against captured fixtures.
 
 ## Build sequence
 
-1. **Phase 1 — Electron shell + capture + packaging.** electron-vite project (main/preload/renderer), oxlint/oxfmt/vitest green. Window + embedded `WebContentsView` loading Carnet Santé; persistent partition. CDP capture → `raw/responses/`; `net.fetch` downloader → `raw/documents/`. Control toolbar (start/stop/status/url/open-output). electron-builder NSIS installer (`pnpm package`). **Deliverable:** a double-click `.exe` that loads the site, lets you log in, captures every JSON/PDF you click through, downloads the PDFs, and writes a raw dump.
+1. ✅ **Phase 1 — Electron shell + capture + packaging.** electron-vite project (main/preload/renderer), oxlint/oxfmt/vitest green. Window + embedded `WebContentsView` loading Carnet Santé; persistent partition. CDP capture → `raw/<ISO-timestamp>/responses/`; `net.fetch` downloader → `raw/<ISO-timestamp>/documents/`. Control toolbar (start/stop/status/url/open-output). electron-builder NSIS installer (`pnpm package`). Output path `~/carnet-sante-extract/` (not Documents, to avoid OneDrive). **Deliverable:** a double-click `.exe` that loads the site, lets you log in, captures every JSON/PDF you click through, downloads the PDFs, and writes a raw dump.
 
-2. **Phase 2 — live recon (needs the user).** Run the app against the live site, log in, walk every section → produces `raw/`. Map the auth flow + per-domain endpoints from the capture; build redacted fixtures for tests.
+2. ✅ **Phase 2 — live recon done.** Ran the app against the live site; endpoint surface mapped in `docs/superpowers/notes/2026-05-23-phase2-endpoint-map.md`. Redacted fixtures built for tests.
 
-3. **Phase 3 — targeted collectors (from the Phase-2 map).** Per-domain collectors + per-domain normalizers + `summary.md`, wired into extract mode, TDD'd against the redacted fixtures. Refine the placeholder zod schemas against real payloads.
+3. ✅ **Phase 3 — targeted collectors + normalize + manifest + summary.** 6 collectors (profile, medications, appointments, medical-services, imaging, labs) + per-domain normalizers + `summary.md`, wired into extract mode, TDD'd against redacted fixtures. Extract button in the toolbar runs the full pipeline.
 
 ## Resilience & privacy
 
@@ -138,6 +139,7 @@ output/        (Phase 3)
 - **Isolated failures**: each collector wrapped in try/catch; one failing doesn't abort the run.
 - **Offline re-processing**: `raw/` persisted so format changes never require re-login.
 - **Polite**: configurable delay between PDF fetches; we do not hammer a government server.
+- **Local-only storage**: output lands under `~/carnet-sante-extract/` directly, not under `Documents/` — avoids Windows OneDrive auto-sync (Documents is often OneDrive-redirected, which would leak health data to cloud storage).
 - **Privacy**: `raw/`, `output/`, and the Electron session partition (cookies, in `userData`) live under the user's profile and are gitignored / outside the repo. Repo ships only code + synthetic/redacted fixtures.
 
 ## Testing strategy
@@ -149,3 +151,5 @@ TDD on the pure logic — `capture/store.ts`, `output/rename.ts`, `output/manife
 - Exact login/MFA flow and the most reliable "logged-in" signal for the status bar.
 - Cookie session vs short-lived bearer token (affects whether collectors must re-trigger page activity to keep a token fresh).
 - The real set of data domains and their endpoint shapes (the expected list — labs, medications, vaccines, imaging, appointments, documents — will be confirmed/adjusted from the capture).
+
+Vaccines are out of scope for this app; the Quebec vaccine portal (Carnet de vaccination via Clic Santé) is separate and would be a Phase 4 recon.

@@ -1,0 +1,12 @@
+{
+  "IndAdmissibiliteCarnetSante": true,
+  "PersonnesACharge": null,
+  "IdCitoyen": "99999",
+  "Nom": "DOE",
+  "Prenom": "JANE",
+  "Sexe": "Femme",
+  "DateNaissance": "1980-01-01T00:00:00",
+  "CarteAssuranceMaladie": null,
+  "FonctionnalitesActives": null,
+  "EstAgeEntre14Et17Ans": false
+}

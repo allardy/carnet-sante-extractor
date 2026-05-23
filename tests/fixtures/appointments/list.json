@@ -1,0 +1,20 @@
+[
+  {
+    "Id": "RDV0001",
+    "DateRendezVous": "2026-06-15T10:00:00-04:00",
+    "NomMedecin": "SMITH",
+    "PrenomMedecin": "JOHN",
+    "Clinique": "Clinique Example",
+    "Specialite": "Médecine familiale",
+    "Statut": "Confirme"
+  },
+  {
+    "Id": "RDV0002",
+    "DateRendezVous": "2026-07-20T14:30:00-04:00",
+    "NomMedecin": "DOE",
+    "PrenomMedecin": "JANE",
+    "Clinique": "Clinique Other",
+    "Specialite": "Cardiologie",
+    "Statut": "EnAttente"
+  }
+]

@@ -1,21 +1,34 @@
 import { describe, expect, it } from 'vitest'
 
-import { documentFileName } from '../src/output/rename.js'
+import { renameDocument } from '../src/output/rename.js'
 
-describe('documentFileName', () => {
-  it('builds TYPE_DATE.pdf from descriptor metadata', () => {
-    expect(documentFileName({ id: '1', url: 'x', title: 'Bilan', type: 'Laboratoire', date: '2026-01-15' })).toBe(
-      'LABORATOIRE_2026-01-15.pdf',
+describe('renameDocument', () => {
+  it('builds <type>/SLUG_DATE.pdf from descriptor', () => {
+    const taken = new Set<string>()
+    const out = renameDocument(
+      { id: 'abc', url: 'x', title: 'Radiographie thorax', type: 'imagerie', date: '2024-06-15' },
+      taken,
     )
+
+    expect(out).toBe('imagerie/RADIOGRAPHIE_THORAX_2024-06-15.pdf')
+    expect(taken.has(out)).toBe(true)
   })
 
-  it('strips accents and normalizes separators', () => {
-    expect(documentFileName({ id: '2', url: 'x', title: 't', type: 'Imagerie médicale', date: '2025-12-01' })).toBe(
-      'IMAGERIE_MEDICALE_2025-12-01.pdf',
+  it('strips diacritics + collapses non-alphanum', () => {
+    const out = renameDocument(
+      { id: 'a', url: '', title: 'Échographie pré-natale', type: 'imagerie', date: '2024-01-01' },
+      new Set(),
     )
+
+    expect(out).toBe('imagerie/ECHOGRAPHIE_PRE_NATALE_2024-01-01.pdf')
   })
 
-  it('falls back to DOCUMENT and undated when type/date are missing', () => {
-    expect(documentFileName({ id: '3', url: 'x', title: 't', type: '' })).toBe('DOCUMENT_undated.pdf')
+  it('disambiguates collisions by appending id suffix', () => {
+    const taken = new Set<string>()
+    const first = renameDocument({ id: 'AAAAAA111111', url: '', title: 'X', type: 't', date: '2024-01-01' }, taken)
+    const second = renameDocument({ id: 'BBBBBB222222', url: '', title: 'X', type: 't', date: '2024-01-01' }, taken)
+
+    expect(first).toBe('t/X_2024-01-01.pdf')
+    expect(second).toBe('t/X_2024-01-01_222222.pdf')
   })
 })

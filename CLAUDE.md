@@ -31,7 +31,7 @@ pnpm fix        # auto-format + lint fix
 
 1. **`src/main/`** — Electron lifecycle, `BaseWindow` with two `WebContentsView`s (`window.ts`), persistent `persist:carnet` session, Chrome DevTools Protocol capture (`capture.ts`), authed PDF download via `net.fetch` (`downloader.ts`), and IPC orchestration (`index.ts`). All filesystem writes happen here.
 2. **`src/capture/store.ts` + `src/preload/` + `src/renderer/` + `src/shared/`** — pure capture model (`store.ts`), `contextBridge` API surface (`preload/`), control-toolbar UI (`renderer/`), and IPC channel contracts (`shared/ipc.ts`). The renderer has no Node access; talks to main over typed IPC.
-3. **`src/collectors/` + `src/normalize/` + `src/output/`** — pure, network-free layer (Phase 3). Collectors return raw JSON + PDF descriptors via a `Navigator` interface; normalize/output turn raw JSON into zod-validated records → `data/*.json`, `markdown/*.md`, organized/renamed PDFs, `manifest.json`. The collectors registry is empty until Phase 2 maps the endpoints.
+3. **`src/collectors/` + `src/normalize/` + `src/output/`** — pure, network-free layer. Collectors (profile, medications, appointments, medical-services, imaging, labs) each navigate to their endpoints via the typed Navigator and return raw JSON + PDF descriptors. Normalize maps raw → zod-validated clean records. Output writes `data/*.json`, per-domain `markdown/*.md`, organized/renamed `documents/`, `manifest.json`, and `summary.md`.
 
 ## Acquisition strategy
 
@@ -39,9 +39,10 @@ Drive the UI like a human, **passively capture** the JSON it fires (hybrid), the
 
 ## Build status
 
-- [x] **Phase 1** — Electron capture app: window + persistent session + CDP capture + authed PDF download + NSIS installer. `pnpm package` ships a double-click `.exe`; capture writes to `~/Documents/carnet-sante-extract/raw/`.
-- [ ] **Phase 2** — live recon (needs Yann): launch the app, log in, walk every section → produces `raw/`. Map auth flow + per-domain endpoints from the capture; build redacted fixtures.
-- [ ] **Phase 3** — targeted per-domain collectors built from the Phase 2 endpoint map, per-domain normalizers, `summary.md` rollup. Plan written after Phase 2 produces real fixtures.
+- [x] **Phase 1** — Electron capture app (with OneDrive + per-run-clobber patches from Phase 3 Task 1). `pnpm package` ships a double-click `.exe`; capture writes to `~/carnet-sante-extract/raw/<ISO-timestamp>/responses/`.
+- [x] **Phase 2** — live recon completed; endpoint surface mapped in `docs/superpowers/notes/2026-05-23-phase2-endpoint-map.md`.
+- [x] **Phase 3** — collectors + normalize + markdown + manifest + summary. Extract button in the toolbar runs the full pipeline.
+- [ ] **Phase 4 (optional)** — vaccines via Carnet de vaccination (separate portal, separate recon).
 
 ## Testing
 

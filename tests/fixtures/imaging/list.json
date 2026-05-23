@@ -1,0 +1,12 @@
+[
+  {
+    "IdCitoyen": null,
+    "NumeroExamen": "9.99.999.9.999999.9.9.99999.9999.9999999.9",
+    "DateExamen": "2024-06-15T10:30:00-04:00",
+    "DescriptionExamen": "Radiographie test",
+    "NomPrescripteur": "SMITH",
+    "PrenomPrescripteur": "JOHN",
+    "RapportsImagerie": null,
+    "DateDisponibiliteRapport": null
+  }
+]

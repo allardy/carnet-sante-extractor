@@ -9,6 +9,7 @@ export type ProgressCounts = { json: number; binaries: number }
 
 export type CaptureHandle = {
   store: CaptureStore
+  runDir: string
   stop: () => Promise<void>
 }
 
@@ -16,7 +17,7 @@ type ResponseMeta = { url: string; status: number; method: string; contentType: 
 
 export const startCapture = async (
   webContents: WebContents,
-  dir: string,
+  runDir: string,
   onProgress: (counts: ProgressCounts) => void,
 ): Promise<CaptureHandle> => {
   const store = emptyStore()
@@ -51,9 +52,10 @@ export const startCapture = async (
         }
         const text = result.base64Encoded ? Buffer.from(result.body, 'base64').toString('utf8') : result.body
         const file = `${safeName(meta.url, current)}.json`
+        const responsesDir = resolve(runDir, 'responses')
 
-        await ensureDir(dir)
-        await writeJson(resolve(dir, file), {
+        await ensureDir(responsesDir)
+        await writeJson(resolve(responsesDir, file), {
           url: meta.url,
           status: meta.status,
           method: meta.method,
@@ -100,9 +102,11 @@ export const startCapture = async (
       // already detached
     }
 
-    await ensureDir(dir)
-    await writeJson(resolve(dir, 'index.json'), store)
+    const responsesDir = resolve(runDir, 'responses')
+
+    await ensureDir(responsesDir)
+    await writeJson(resolve(responsesDir, 'index.json'), store)
   }
 
-  return { store, stop }
+  return { store, runDir, stop }
 }

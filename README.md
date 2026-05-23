@@ -8,7 +8,9 @@ No cloud, no API keys, no LLM in the loop. Everything stays on your machine.
 
 ```bash
 pnpm install
-pnpm dev        # launches the app: log in, click Start capture, walk every section, Stop & save
+pnpm dev        # launches the app — log in, then either:
+                #   Start capture → walk sections → Stop & save  (raw dump for debugging)
+                #   Extract everything                           (full pipeline → clean output)
 ```
 
 ## Build the installer
@@ -21,15 +23,20 @@ The build is unsigned, so Windows SmartScreen warns on first launch — **More i
 
 ## Output
 
-Written to `~/Documents/carnet-sante-extract/`:
+Written to `~/carnet-sante-extract/`:
 
 ```
-raw/
-  responses/   captured JSON (one file per response) + index.json
-  documents/   downloaded PDFs
-```
+raw/<ISO-timestamp>/   # one folder per capture/extract run
+  responses/   captured JSON
+  documents/   downloaded PDFs (Phase 1 raw names)
 
-(Phase 3 adds the normalize step that turns `raw/` into `output/data`, `output/markdown`, and renamed `output/documents`.)
+output/
+  data/        clean structured JSON (one file per domain)
+  markdown/    per-domain markdown rollups + summary.md
+  documents/   renamed PDFs organized by type
+  manifest.json
+  summary.md   top-level health record summary
+```
 
 ## Privacy
 
@@ -37,4 +44,4 @@ raw/
 
 ## Status
 
-Phase 1 (Electron capture app) is implemented. Phase 2 = a live recon pass to map the site's endpoints; Phase 3 = targeted per-domain collectors + normalization. See `docs/superpowers/specs/2026-05-23-carnet-sante-extract-design.md`.
+Phase 1/2/3 implemented. Phase 4 (vaccines via Carnet de vaccination, a separate portal) is optional and out of scope for this app. See `docs/superpowers/specs/2026-05-23-carnet-sante-extract-design.md`.

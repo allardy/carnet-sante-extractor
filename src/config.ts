@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 
-export type Domain = 'labs' | 'medications' | 'vaccines' | 'imaging' | 'appointments' | 'documents'
+export type Domain = 'profile' | 'labs' | 'medications' | 'imaging' | 'appointments' | 'medical-services' | 'documents'
 
 export type Config = {
   carnetUrl: string
@@ -28,7 +28,7 @@ export const config: Config = {
   windowWidth: 1280,
   windowHeight: 900,
   toolbarHeight: 56,
-  domains: ['labs', 'medications', 'vaccines', 'imaging', 'appointments', 'documents'],
+  domains: ['profile', 'labs', 'medications', 'imaging', 'appointments', 'medical-services', 'documents'],
   requestDelayMs: 800,
   downloadConcurrency: 3,
   downloadRetries: 2,
