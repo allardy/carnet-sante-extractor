@@ -1,0 +1,20 @@
+# dependencies
+node_modules
+
+# build
+dist
+*.tsbuildinfo
+
+# coverage
+coverage
+
+# ── health data + live session — NEVER commit ──
+output/
+recon/
+raw/
+.auth/
+
+# misc
+.DS_Store
+*.log
+.env*

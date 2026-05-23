@@ -7,9 +7,7 @@
 
 Carnet Santé Québec (the Quebec government health portal) has **no API and no bulk-download**. To get your own health records out, you must manually click and download each document one at a time, and the structured data shown on screen (lab values over time, medication lists, vaccines, appointments) isn't downloadable at all.
 
-An existing Python toolkit ([Gavin-Qiao/carnet-sante-toolkit](https://github.com/Gavin-Qiao/carnet-sante-toolkit)) only implements "Phase 2" — LLM-renaming of PDFs you've *already* downloaded by hand. The hard part — actually logging in and pulling everything down automatically — is unimplemented.
-
-This project fills that gap, in TypeScript/Node.
+Prior attempts only handle the easy half — renaming PDFs you've _already_ downloaded by hand. The hard part — actually logging in and pulling everything down automatically — is what this project does, in TypeScript/Node.
 
 ## Goals
 
@@ -29,12 +27,12 @@ This project fills that gap, in TypeScript/Node.
 
 ## Key decisions
 
-| Decision | Choice | Rationale |
-| --- | --- | --- |
-| Data scope | Everything → AI-ready (PDFs + structured data → clean MD/JSON) | Full vision; the structured data is the part no manual workflow can get. |
-| Interface | CLI + real headed browser window | Human does login/MFA; Playwright takes over the same session. Least code, most robust. No Electron. |
-| LLM role | None in-tool; deterministic extraction | Filenames/metadata come from API payloads, not LLM guessing. Fully offline, no keys. |
-| Acquisition | Hybrid C → graduate to A | Drive the UI like a human, passively capture the JSON it fires; promote stable endpoints to direct API calls later. Lowest risk, produces the API map for free. |
+| Decision    | Choice                                                         | Rationale                                                                                                                                                       |
+| ----------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Data scope  | Everything → AI-ready (PDFs + structured data → clean MD/JSON) | Full vision; the structured data is the part no manual workflow can get.                                                                                        |
+| Interface   | CLI + real headed browser window                               | Human does login/MFA; Playwright takes over the same session. Least code, most robust. No Electron.                                                             |
+| LLM role    | None in-tool; deterministic extraction                         | Filenames/metadata come from API payloads, not LLM guessing. Fully offline, no keys.                                                                            |
+| Acquisition | Hybrid C → graduate to A                                       | Drive the UI like a human, passively capture the JSON it fires; promote stable endpoints to direct API calls later. Lowest risk, produces the API map for free. |
 
 ## Architecture — three cleanly separated layers
 
@@ -91,7 +89,7 @@ carnet-sante-extract/
 
 ## CLI commands
 
-- **`recon`** — opens the browser, you log in and click around; records *all* network traffic to `recon/` (HAR + per-response JSON + an index). The deliverable of build Step 2: the map of the auth flow + endpoints. Exploratory/throwaway.
+- **`recon`** — opens the browser, you log in and click around; records _all_ network traffic to `recon/` (HAR + per-response JSON + an index). The deliverable of build Step 2: the map of the auth flow + endpoints. Exploratory/throwaway.
 - **`run`** — login/session → run enabled collectors (UI-driven nav + passive capture) → download PDFs → normalize → write `output/`. The main command.
 - **`normalize`** — re-runs normalization from saved `raw/` only. No network, no login. For iterating on output format.
 - **`login`** — just establish + persist the session.
