@@ -1,149 +1,151 @@
 # carnet-sante-extract — Design
 
 **Date:** 2026-05-23
-**Status:** Approved (brainstorming) → ready for implementation plan
+**Status:** Approved → Phase 1 implemented; Phase 2/3 follow.
 
 ## Problem
 
-Carnet Santé Québec (the Quebec government health portal) has **no API and no bulk-download**. To get your own health records out, you must manually click and download each document one at a time, and the structured data shown on screen (lab values over time, medication lists, vaccines, appointments) isn't downloadable at all.
-
-Prior attempts only handle the easy half — renaming PDFs you've _already_ downloaded by hand. The hard part — actually logging in and pulling everything down automatically — is what this project does, in TypeScript/Node.
+[Carnet Santé Québec](https://carnetsante.gouv.qc.ca) (the Quebec government health portal) has **no API and no bulk-download**. To get your own health records out you must manually click and download each document one at a time, and the structured data shown on screen (lab values over time, medication lists, vaccines, appointments) isn't downloadable at all.
 
 ## Goals
 
+- A **Windows desktop app** (electron-builder NSIS installer) anyone can run without a toolchain — double-click to launch, no terminal, no `pnpm`, no Playwright install.
 - Log into Carnet Santé (human does the login, MFA included), then automatically extract **everything**:
   - All downloadable **PDF documents** (lab reports, imaging reports, hospital docs, etc.).
   - The **structured data** rendered on screen (lab values, medications, vaccines, appointments).
-- Normalize it into clean, **AI-ready** Markdown + JSON for the user to feed to an LLM later.
-- Fully **deterministic and offline** — no LLM in the tool, no API keys, no Ollama.
+- Normalize it into clean, **AI-ready Markdown + JSON** for the user to feed to an LLM later.
+- Fully **deterministic and offline** — no LLM in the tool, no API keys, no cloud.
 - Everything stays **local**. Health data and session state never leave the machine and are never committed.
 
 ## Non-goals
 
-- No in-tool LLM enrichment/summarization (user does that downstream).
+- No in-app LLM enrichment/summarization (user does that downstream).
 - No cloud processing or external API calls beyond Carnet Santé itself.
-- No GUI/desktop app — CLI + a real browser window is the interface.
-- Not a hardened multi-user product; it's a personal tool for one account.
+- No code-signing in this iteration — the unsigned build trips Windows SmartScreen once (**More info → Run anyway**). macOS build deferred.
+- Not a hardened multi-user product; personal tool for one account.
 
 ## Key decisions
 
-| Decision    | Choice                                                         | Rationale                                                                                                                                                       |
-| ----------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Data scope  | Everything → AI-ready (PDFs + structured data → clean MD/JSON) | Full vision; the structured data is the part no manual workflow can get.                                                                                        |
-| Interface   | CLI + real headed browser window                               | Human does login/MFA; Playwright takes over the same session. Least code, most robust. No Electron.                                                             |
-| LLM role    | None in-tool; deterministic extraction                         | Filenames/metadata come from API payloads, not LLM guessing. Fully offline, no keys.                                                                            |
-| Acquisition | Hybrid C → graduate to A                                       | Drive the UI like a human, passively capture the JSON it fires; promote stable endpoints to direct API calls later. Lowest risk, produces the API map for free. |
+| Decision     | Choice                                                  | Rationale                                                                                                                                                       |
+| ------------ | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform     | **Electron** desktop app                                | A double-click app anyone can use. Embedded Chromium handles the real login flow; CDP gives us the network capture without an extra dependency.                 |
+| Acquisition  | **Capture-first → targeted collectors** (phased)        | Phase 1 captures every JSON/PDF the site fires generically. From that capture we map per-domain endpoints, then write precise collectors in Phase 3.            |
+| Capture      | **Chrome DevTools Protocol** via `webContents.debugger` | `Network.responseReceived` + `Network.getResponseBody` records JSON bodies and flags PDFs. The captured shape (`CaptureStore`) is what every later layer reads. |
+| Session      | **Persistent partition** (`persist:carnet`)             | Electron stores cookies in `userData` automatically — session survives relaunch, no `storageState` files to juggle.                                             |
+| PDF download | **`net.fetch(url, { session })`**                       | Auto-attaches the partition's cookies. Concurrency, retry, checksum, skip-if-in-manifest layered on top.                                                        |
+| LLM role     | **None in-tool**; deterministic extraction              | Filenames/metadata come from API payloads, not LLM guessing. Fully offline, no keys.                                                                            |
+| Build tool   | **electron-vite**                                       | Standard Electron bundler for main/preload/renderer + TS + renderer HMR. oxlint/oxfmt/vitest unchanged.                                                         |
+| Packaging    | **electron-builder → NSIS** (Windows)                   | Single-file installer (`release/Carnet Sante Extract Setup <version>.exe`). macOS + signing deferred.                                                           |
 
-## Architecture — three cleanly separated layers
+## Process model
 
-1. **Browser layer** — owns the live session. Launches headed Chromium, lets the human log in (MFA), persists the session (`storageState`), and exposes (a) an authenticated request context for binary downloads and (b) a passive network-capture stream. Knows nothing about specific health domains.
-2. **Collector layer** — one module per data domain. Each navigates to its section, waits for the JSON it needs (captured by the browser layer), and returns raw payloads + PDF descriptors. Collectors are **isolated**: one failing does not abort the run.
-3. **Normalize/output layer** — pure and network-free. Turns raw JSON into zod-validated typed records → writes `data/*.json`, `markdown/*.md`, organized/renamed PDFs, and a `manifest.json`. Reads from saved raw responses, so normalization can be re-run offline without re-login.
+- **Main process** (`src/main/`) — app lifecycle, the embedded site's `WebContentsView`, the CDP capture, the authed downloader, the orchestrator, and **all** filesystem writes. Node-privileged.
+- **Embedded site** — `carnetsante.gouv.qc.ca` in a `WebContentsView` (modern replacement for the deprecated `<webview>` tag). The user logs in here directly. The debugger is attached to _this_ web contents.
+- **Control UI** (`src/renderer/`) — a thin chrome around the embedded site: status line (`Please log in` → `capturing — N JSON, M PDF` → `downloading — K downloaded` → `done`), Start/Stop-capture button, live URL display, "Open output folder". No Node access; talks to main over typed IPC.
+- **Preload** (`src/preload/`) — `contextBridge` exposing a minimal IPC API (start/stop capture, subscribe to progress, subscribe to site URL changes, open output dir).
+
+## Capture mechanism
+
+1. `webContents.debugger.attach('1.3')`, then `Network.enable`.
+2. On `Network.responseReceived` — record `requestId → {url, status, method, contentType}`.
+3. On `Network.loadingFinished`:
+   - JSON mime → `Network.getResponseBody` → write `raw/responses/NNNN-slug.json` as `{ url, status, method, body }`; push to `store.json`.
+   - `pdf` / `octet-stream` → push to `store.binaries` as a download descriptor (fetched later by the downloader).
+4. On Stop — write `raw/responses/index.json` (the `CaptureStore`), then run the downloader.
+
+The `CaptureStore` / `CapturedResponse` types are pure (`src/capture/store.ts`) and shared between the main process, future collectors, and tests.
+
+## Authed PDF download
+
+`net.fetch(descriptor.url, { session, useSessionCookies: true })` from the main process; the partition's cookies attach automatically. `mapLimit` caps concurrency at `config.downloadConcurrency`, `requestDelayMs` paces between requests, and `downloadRetries` controls retry-with-linear-backoff. Failures on individual PDFs are logged but don't abort the batch.
+
+Phase 1 names files from the URL slug (`safeName(url, i).pdf`). Phase 3 replaces this with descriptor-driven naming + a manifest-skip path once collectors supply metadata.
 
 ## Module layout
 
 ```
-carnet-sante-extract/
-  src/
-    cli.ts                  # commands: recon | run | normalize | login
-    config.ts               # base URL, output dir, enabled domains, polite-delay, concurrency
-    browser/
-      session.ts            # headed chromium, human login, persist storageState, authed request context
-      capture.ts            # page.on('response') → dump JSON + flag PDFs to raw/
-      navigator.ts          # generic UI-driving helpers (click, waitForResponse, retries)
-    collectors/
-      types.ts              # Collector interface + DomainResult
-      labs.ts
-      medications.ts
-      vaccines.ts
-      imaging.ts
-      appointments.ts
-      documents.ts
-      index.ts              # registry of enabled collectors
-    download/
-      downloader.ts         # authed PDF fetch: concurrency, retry, checksum, skip-existing
-    normalize/
-      schemas.ts            # zod schema per domain (clean record shapes)
-      labs.ts               # raw JSON → clean records (one per domain)
-      ...
-      markdown.ts           # clean records → Markdown
-    output/
-      writer.ts             # writes data/*.json, markdown/*.md, organizes documents/
-      manifest.ts           # manifest read/write + incremental skip logic
-      rename.ts             # deterministic PDF naming from metadata
-    util/
-      log.ts
-      fs.ts
-      concurrency.ts
-  tests/
-    fixtures/               # saved raw JSON samples (synthetic/redacted)
-    normalize.test.ts
-    rename.test.ts
-    manifest.test.ts
-  recon/                    # gitignored — captured traffic from recon runs
-  output/                   # gitignored — extracted health data
-  raw/                      # gitignored — raw API responses (re-normalization source)
-  .auth/                    # gitignored — storageState.json (session)
-  package.json tsconfig.json .gitignore README.md CLAUDE.md
+src/
+  main/
+    index.ts            # app lifecycle, IPC wiring
+    window.ts           # BaseWindow + toolbar/site WebContentsViews + layout
+    capture.ts          # CDP debugger → CaptureStore (writes raw/responses/)
+    downloader.ts       # net.fetch authed PDF download (retry/concurrency)
+  preload/
+    index.ts            # contextBridge API surface
+  renderer/
+    index.html
+    app.ts              # control toolbar UI
+    styles.css
+    env.d.ts
+  shared/
+    ipc.ts              # IPC channel constants + payload types
+  capture/
+    store.ts            # pure CaptureStore types + classify + safeName + emptyStore
+  collectors/           # (Phase 3) — one module per data domain
+    types.ts            # CollectContext = { nav: Navigator; capture: CaptureStore }
+    index.ts            # registry — empty until Phase 2 maps endpoints
+  normalize/            # (Phase 3) — schemas.ts, markdown.ts, per-domain normalizers
+  output/               # (Phase 3) — rename.ts, manifest.ts, writer.ts
+  util/                 # fs.ts, concurrency.ts, log.ts
+  config.ts             # carnetUrl, partition, window dims, concurrency, retries
+tests/
+  capture-store.test.ts # pure capture-helper tests
+  rename.test.ts manifest.test.ts markdown.test.ts  # (Phase 3) — pure logic tests
+electron.vite.config.ts # electron-vite (main/preload/renderer)
+electron-builder.yml    # win nsis target, appId, productName
 ```
 
-## CLI commands
+## Data flow
 
-- **`recon`** — opens the browser, you log in and click around; records _all_ network traffic to `recon/` (HAR + per-response JSON + an index). The deliverable of build Step 2: the map of the auth flow + endpoints. Exploratory/throwaway.
-- **`run`** — login/session → run enabled collectors (UI-driven nav + passive capture) → download PDFs → normalize → write `output/`. The main command.
-- **`normalize`** — re-runs normalization from saved `raw/` only. No network, no login. For iterating on output format.
-- **`login`** — just establish + persist the session.
+**Phase 1 / capture mode (Start capture → Stop & save):**
 
-## Data flow (`run`)
+1. App opens the window with the `persist:carnet` partition; the embedded view navigates to `carnetUrl`. If cookies are still valid the user is already logged in; otherwise they log in in the embedded view.
+2. User clicks **Start capture**. `capture.ts` attaches the debugger and begins recording.
+3. User clicks through every section. All JSON is dumped to `raw/responses/`; PDFs are flagged.
+4. User clicks **Stop & save**. `downloader.ts` fetches all flagged PDFs via `net.fetch` into `raw/documents/`. `raw/responses/index.json` is written. Status → `done`. **Open output** reveals `raw/` in Explorer.
 
-1. `session.ts` launches headed Chromium with persisted `storageState` if still valid; otherwise waits for the human to complete login, then persists the session.
-2. `capture.ts` attaches a `response` listener: JSON responses from the API base are buffered and written to `raw/`; PDF / `application/octet-stream` responses are flagged as download descriptors.
-3. The orchestrator runs each enabled collector: it navigates to its section, waits for the relevant JSON responses, and returns raw payload references + document descriptors.
-4. `downloader.ts` fetches PDFs via the authenticated request context (reusing cookies/token), concurrency-limited, retried, checksummed; skips docs already present in the manifest.
-5. `normalize` turns raw JSON into zod-validated clean records → writes `data/*.json` + `markdown/*.md`.
-6. `output` organizes/renames PDFs into `documents/<type>/EXAM_TYPE_YYYY-MM-DD.pdf`, writes `manifest.json` (timestamps, counts, checksums, per-domain errors), and a top-level `summary.md`.
+**Phase 3 / extract mode (after collectors exist):** orchestrator runs each enabled collector (`nav.goto` its section → `nav.waitForJson` → return raw + document descriptors), downloads PDFs, then runs the unchanged normalize → output pipeline producing `data/*.json`, `markdown/*.md`, renamed `documents/`, `manifest.json`, `summary.md`.
 
 ## Output structure
 
+Written to `~/Documents/carnet-sante-extract/`:
+
 ```
-output/
-  documents/               # renamed PDFs, organized by type
-    laboratoire/  imagerie/  ...
-  data/                    # clean structured JSON, one file per domain
-    labs.json medications.json vaccines.json appointments.json imaging.json
-  markdown/                # human/LLM-readable rollups
-    labs.md medications.md ... summary.md
-  manifest.json            # what was extracted, when, counts, checksums, errors
+raw/
+  responses/   captured JSON (one file per response) + index.json
+  documents/   downloaded PDFs (Phase 1 names them by URL slug)
+
+output/        (Phase 3)
+  documents/   renamed PDFs organized by type (laboratoire/, imagerie/, ...)
+  data/        clean structured JSON, one file per domain
+  markdown/    per-domain rollups + summary.md
+  manifest.json
 ```
 
-## Resilience & privacy
-
-- **Incremental**: manifest tracks docs by stable ID + checksum; re-runs skip already-downloaded docs.
-- **Polite**: configurable delay between requests; we do not hammer a government server.
-- **Isolated failures**: each collector wrapped in try/catch; failures logged and reported at the end, run continues.
-- **Offline re-processing**: raw responses persisted so format changes never require re-fetching or re-login.
-- **Privacy**: `output/`, `recon/`, `raw/`, `.auth/` all gitignored. The repo ships only code + synthetic/redacted fixtures. Nothing leaves the machine.
-
-## Tech stack (matches workspace conventions)
-
-TypeScript, Node 20+, **pnpm**, Playwright (Chromium, headed), **zod**, **oxlint + oxfmt**, **vitest**, tsx (dev) / tsc (build). `pnpm check` (format + lint + typecheck) and `pnpm fix` (autoformat + lint fix) wired up like the other active projects.
-
-## Testing strategy
-
-- **TDD** on the high-value pure logic — normalize, rename, manifest skip-logic, markdown generation — against saved fixtures. These are bug-prone and matter most.
-- Browser/capture/download is smoke-tested against recorded fixtures, **not** unit-tested against the live gov site.
+`raw/` is the re-normalization source: Phase 3 can re-run normalize/output entirely offline against captured fixtures.
 
 ## Build sequence
 
-1. **Scaffold** — package.json, tsconfig, oxlint/oxfmt, vitest, `.gitignore`, CLI skeleton, `session.ts` + `capture.ts`, working `recon` command.
-2. **Live recon session** (needs the user) — log in, click through every section, record traffic → document the auth flow + endpoints in `docs/`.
-3. **One collector end-to-end** (labs first) — collector + normalize + markdown + tests against captured fixtures.
-4. **Remaining collectors** — medications, vaccines, imaging, appointments, documents.
-5. **Downloader + rename + manifest + incremental** — authed PDF download, deterministic naming, skip-existing.
-6. **Output consolidation + harden** — `summary.md`; promote proven-stable endpoints to direct API calls (Approach A); retries/delays tuning.
+1. **Phase 1 — Electron shell + capture + packaging.** electron-vite project (main/preload/renderer), oxlint/oxfmt/vitest green. Window + embedded `WebContentsView` loading Carnet Santé; persistent partition. CDP capture → `raw/responses/`; `net.fetch` downloader → `raw/documents/`. Control toolbar (start/stop/status/url/open-output). electron-builder NSIS installer (`pnpm package`). **Deliverable:** a double-click `.exe` that loads the site, lets you log in, captures every JSON/PDF you click through, downloads the PDFs, and writes a raw dump.
 
-## Open questions (resolved during recon)
+2. **Phase 2 — live recon (needs the user).** Run the app against the live site, log in, walk every section → produces `raw/`. Map the auth flow + per-domain endpoints from the capture; build redacted fixtures for tests.
 
-- Exact login/MFA flow and how to reliably detect "logged in".
-- Whether the API uses short-lived bearer tokens (needs live-page refresh) vs cookie sessions.
-- The real set of data domains and their endpoint shapes — the domain list above is the expected set and will be confirmed/adjusted from recon.
+3. **Phase 3 — targeted collectors (from the Phase-2 map).** Per-domain collectors + per-domain normalizers + `summary.md`, wired into extract mode, TDD'd against the redacted fixtures. Refine the placeholder zod schemas against real payloads.
+
+## Resilience & privacy
+
+- **Incremental** (Phase 3): manifest tracks docs by stable id + checksum; re-runs skip already-downloaded docs.
+- **Isolated failures**: each collector wrapped in try/catch; one failing doesn't abort the run.
+- **Offline re-processing**: `raw/` persisted so format changes never require re-login.
+- **Polite**: configurable delay between PDF fetches; we do not hammer a government server.
+- **Privacy**: `raw/`, `output/`, and the Electron session partition (cookies, in `userData`) live under the user's profile and are gitignored / outside the repo. Repo ships only code + synthetic/redacted fixtures.
+
+## Testing strategy
+
+TDD on the pure logic — `capture/store.ts`, `output/rename.ts`, `output/manifest.ts`, `normalize/markdown.ts` — against saved fixtures (vitest). Electron main-process capture/download/navigator is smoke-tested against recorded fixtures, not unit-tested against the live gov site.
+
+## Open questions (resolved during Phase 2)
+
+- Exact login/MFA flow and the most reliable "logged-in" signal for the status bar.
+- Cookie session vs short-lived bearer token (affects whether collectors must re-trigger page activity to keep a token fresh).
+- The real set of data domains and their endpoint shapes (the expected list — labs, medications, vaccines, imaging, appointments, documents — will be confirmed/adjusted from the capture).

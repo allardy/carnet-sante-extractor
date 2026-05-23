@@ -1,16 +1,15 @@
 {
   "name": "carnet-sante-extract",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Extract your health records (PDFs + structured data) from Carnet Santé Québec into AI-ready Markdown/JSON.",
-  "bin": {
-    "carnet-extract": "dist/cli.js"
-  },
+  "description": "Desktop app that logs you into Carnet Santé Québec, then captures your health records (PDFs + structured data) into AI-ready Markdown/JSON.",
   "type": "module",
+  "main": "out/main/index.js",
   "scripts": {
-    "dev": "tsx src/cli.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/cli.js",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "package": "electron-vite build && electron-builder",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -23,7 +22,6 @@
     "fix": "pnpm fix:format && pnpm fix:lint"
   },
   "dependencies": {
-    "playwright": "^1.49.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -32,10 +30,13 @@
     "@rolldown/binding-win32-x64-msvc": "1.0.2",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^22.19.17",
+    "electron": "^42.2.0",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^5.0.0",
     "oxfmt": "^0.43.0",
     "oxlint": "^1.58.0",
-    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
+    "vite": "^6.4.2",
     "vitest": "^4.1.7"
   },
   "engines": {
@@ -45,7 +46,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "playwright"
+      "electron"
     ]
   }
 }

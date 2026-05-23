@@ -5,10 +5,11 @@ export type Domain = 'labs' | 'medications' | 'vaccines' | 'imaging' | 'appointm
 export type Config = {
   carnetUrl: string
   outputDir: string
-  reconDir: string
   rawDir: string
-  authDir: string
-  storageStatePath: string
+  partitionName: string
+  windowWidth: number
+  windowHeight: number
+  toolbarHeight: number
   domains: Domain[]
   requestDelayMs: number
   downloadConcurrency: number
@@ -17,13 +18,16 @@ export type Config = {
 
 const root = process.cwd()
 
+// outputDir/rawDir default to cwd for dev (`pnpm dev`); main/index.ts overrides them to a
+// user-visible Documents folder once the Electron app path is available.
 export const config: Config = {
   carnetUrl: 'https://carnetsante.gouv.qc.ca',
   outputDir: resolve(root, 'output'),
-  reconDir: resolve(root, 'recon'),
   rawDir: resolve(root, 'raw'),
-  authDir: resolve(root, '.auth'),
-  storageStatePath: resolve(root, '.auth', 'storage-state.json'),
+  partitionName: 'persist:carnet',
+  windowWidth: 1280,
+  windowHeight: 900,
+  toolbarHeight: 56,
   domains: ['labs', 'medications', 'vaccines', 'imaging', 'appointments', 'documents'],
   requestDelayMs: 800,
   downloadConcurrency: 3,

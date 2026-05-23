@@ -1,35 +1,40 @@
 # carnet-sante-extract
 
-Pull **everything** out of [Carnet Santé Québec](https://carnetsante.gouv.qc.ca) — the Quebec government health portal that has no API and no bulk download. You log in by hand (MFA and all); the tool takes over the live session, captures the structured data the site renders, downloads every PDF, and writes it all out as clean, deterministic **Markdown + JSON** you can hand to an LLM later.
+Desktop app that pulls **everything** out of [Carnet Santé Québec](https://carnetsante.gouv.qc.ca) — the Quebec government health portal that has no API and no bulk download. Open the app, log in by hand (MFA and all), and it takes over the live session: it captures the structured data the site renders + downloads every PDF, ready to be normalized into clean **Markdown + JSON** for an LLM later.
 
 No cloud, no API keys, no LLM in the loop. Everything stays on your machine.
 
-## Quick start
+## Run it (development)
 
 ```bash
 pnpm install
-pnpm exec playwright install chromium   # one-time browser download
-
-pnpm dev recon     # opens a browser; log in + click through every section → records traffic to recon/
-pnpm dev run       # full extraction → output/
-pnpm dev normalize # re-build output/ from saved raw/ (offline, no login)
-pnpm dev login     # just establish + persist the session
+pnpm dev        # launches the app: log in, click Start capture, walk every section, Stop & save
 ```
+
+## Build the installer
+
+```bash
+pnpm package    # → release/Carnet Sante Extract Setup <version>.exe (Windows, NSIS)
+```
+
+The build is unsigned, so Windows SmartScreen warns on first launch — **More info → Run anyway**.
 
 ## Output
 
+Written to `~/Documents/carnet-sante-extract/`:
+
 ```
-output/
-  documents/   renamed PDFs, organized by type
-  data/        clean structured JSON, one file per domain
-  markdown/    human/LLM-readable rollups + summary.md
-  manifest.json
+raw/
+  responses/   captured JSON (one file per response) + index.json
+  documents/   downloaded PDFs
 ```
+
+(Phase 3 adds the normalize step that turns `raw/` into `output/data`, `output/markdown`, and renamed `output/documents`.)
 
 ## Privacy
 
-`output/`, `recon/`, `raw/`, and `.auth/` are gitignored and contain real health data + live session cookies. They never leave your machine and must never be committed.
+`raw/`, `output/`, and the Electron session partition (live cookies) live under your user profile and must never be committed. The repo ships only code + synthetic/redacted fixtures.
 
 ## Status
 
-Step 1 (scaffold + `recon`) is in place. Collectors are added after a live recon session maps the site's endpoints — see [`docs/superpowers/specs/2026-05-23-carnet-sante-extract-design.md`](docs/superpowers/specs/2026-05-23-carnet-sante-extract-design.md) and `CLAUDE.md`.
+Phase 1 (Electron capture app) is implemented. Phase 2 = a live recon pass to map the site's endpoints; Phase 3 = targeted per-domain collectors + normalization. See `docs/superpowers/specs/2026-05-23-carnet-sante-extract-design.md`.

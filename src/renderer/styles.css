@@ -1,0 +1,41 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font:
+    13px/1.4 system-ui,
+    sans-serif;
+  color: #1a1a1a;
+}
+
+#bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 12px;
+  background: #f4f4f5;
+  border-bottom: 1px solid #d4d4d8;
+}
+
+#bar button {
+  padding: 6px 14px;
+  border: 1px solid #71717a;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+#status {
+  font-weight: 600;
+}
+
+#url {
+  flex: 1;
+  color: #71717a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

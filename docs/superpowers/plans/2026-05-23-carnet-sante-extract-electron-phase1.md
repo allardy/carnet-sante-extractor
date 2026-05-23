@@ -8,7 +8,7 @@
 
 **Tech Stack:** Electron (ESM main), electron-vite (bundling + renderer HMR), electron-builder (NSIS installer), TypeScript (Bundler resolution), Chrome DevTools Protocol, vitest, oxlint + oxfmt, pnpm.
 
-**Scope note:** This plan is **Phase 1** of the design at `docs/superpowers/specs/2026-05-23-carnet-sante-extract-electron-design.md`. Phase 2 (live recon by the user) and Phase 3 (targeted per-domain collectors built from the captured endpoint map) are separate and follow once Phase 1's capture has produced real fixtures. Writing their tasks now would be guesswork.
+**Scope note:** This plan is **Phase 1** of the design at `docs/superpowers/specs/2026-05-23-carnet-sante-extract-design.md`. Phase 2 (live recon by the user) and Phase 3 (targeted per-domain collectors built from the captured endpoint map) are separate and follow once Phase 1's capture has produced real fixtures. Writing their tasks now would be guesswork.
 
 **Conventions (enforced by `pnpm check`):** no semicolons, single quotes, 2-space indent, 120 col, trailing commas, arrow functions over `function`, named exports only, relative imports keep `.js` extensions. `no-floating-promises` is an error → prefix fire-and-forget promises with `void`. A blank line is required before every `return`/`if`/`for`/`try` and after each `const`/`let` block (oxlint `@stylistic/padding-line-between-statements`). Run `pnpm fix` before every commit; it auto-fixes formatting + lint.
 
@@ -17,6 +17,7 @@
 ## File structure
 
 **Created:**
+
 - `src/capture/store.ts` — pure capture types + `classify`/`safeName`/`emptyStore` (no Electron). Shared by main + collectors + tests.
 - `src/main/index.ts` — app lifecycle, base-dir setup, window creation, IPC wiring.
 - `src/main/window.ts` — `BaseWindow` + toolbar/site `WebContentsView`s + resize layout.
@@ -30,6 +31,7 @@
 - `tests/capture-store.test.ts` — vitest for the pure capture helpers.
 
 **Modified:**
+
 - `package.json` — drop `playwright`/`tsx`, add electron toolchain, swap scripts, set `main`.
 - `tsconfig.json` — NodeNext → Bundler resolution, add DOM lib, `noEmit`.
 - `src/config.ts` — drop auth/recon/storage fields, add partition + window dims.
@@ -38,6 +40,7 @@
 - `README.md`, `CLAUDE.md` — reflect the Electron platform.
 
 **Deleted:**
+
 - `src/browser/` (session.ts, capture.ts, navigator.ts) — replaced by `src/main/*`.
 - `src/cli.ts` — replaced by the Electron app.
 - `src/download/downloader.ts` — replaced by `src/main/downloader.ts`.
@@ -51,6 +54,7 @@
 Additive — nothing else changes yet, so the repo stays green. This pulls the testable slug/classify logic out of the old Playwright `capture.ts` into a domain-pure module that both the new main process and future collectors will import.
 
 **Files:**
+
 - Create: `src/capture/store.ts`
 - Test: `tests/capture-store.test.ts`
 
@@ -174,6 +178,7 @@ git commit -m "feat: extract pure capture store (classify/safeName)"
 After this task there is no Electron runtime code yet, only pure TS — so `pnpm check:type` and `pnpm test` must stay green. The Electron app boots in Task 3.
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `tsconfig.json`
 - Modify: `src/config.ts` (full rewrite below)
@@ -316,10 +321,7 @@ Replace `dependencies`, `devDependencies`, `scripts`, `main`, `bin`, and `pnpm.o
   },
   "packageManager": "pnpm@10.33.0",
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "electron"
-    ]
+    "onlyBuiltDependencies": ["esbuild", "electron"]
   }
 }
 ```
@@ -353,6 +355,7 @@ pnpm install
 pnpm check:type
 pnpm test
 ```
+
 Expected: `pnpm install` resolves electron + electron-vite (Electron's postinstall downloads its binary). `check:type` passes (no Playwright references remain). `pnpm test` passes (rename/manifest/markdown/capture-store all green).
 
 - [ ] **Step 7: Commit**
@@ -369,6 +372,7 @@ git commit -m "chore: swap Playwright/tsx toolchain for Electron + electron-vite
 Boot a window that loads the live Carnet Santé site. No toolbar yet — this proves the Electron + electron-vite + ESM wiring works end to end.
 
 **Files:**
+
 - Create: `electron.vite.config.ts`
 - Create: `src/shared/ipc.ts`
 - Create: `src/main/index.ts`
@@ -469,6 +473,7 @@ git commit -m "feat: electron-vite config + main window loading Carnet Sante"
 Add the top toolbar with status/URL/buttons in its own `WebContentsView`, wired over IPC. Handlers are no-ops for now; capture lands in Task 5.
 
 **Files:**
+
 - Create: `src/main/window.ts`
 - Modify: `src/main/index.ts`
 - Create: `src/preload/index.ts`
@@ -590,7 +595,9 @@ export type Api = typeof api
 
 body {
   margin: 0;
-  font: 13px/1.4 system-ui, sans-serif;
+  font:
+    13px/1.4 system-ui,
+    sans-serif;
   color: #1a1a1a;
 }
 
@@ -751,6 +758,7 @@ git commit -m "feat: control toolbar renderer + preload + two-view layout"
 Attach the Chrome DevTools Protocol to the site's `webContents` and stream JSON bodies to `raw/responses/`, flagging PDFs. This is the Electron equivalent of the old Playwright `capture.ts`.
 
 **Files:**
+
 - Create: `src/main/capture.ts`
 - Modify: `src/main/index.ts`
 
@@ -812,7 +820,12 @@ export const startCapture = async (
         const file = `${safeName(meta.url, current)}.json`
 
         await ensureDir(dir)
-        await writeJson(resolve(dir, file), { url: meta.url, status: meta.status, method: meta.method, body: JSON.parse(text) })
+        await writeJson(resolve(dir, file), {
+          url: meta.url,
+          status: meta.status,
+          method: meta.method,
+          body: JSON.parse(text),
+        })
         store.json.push({ ...meta, file })
         onProgress({ json: store.json.length, binaries: store.binaries.length })
       } else if (kind === 'binary') {
@@ -884,28 +897,32 @@ const send = (channel: string, payload: unknown): void => win?.toolbar.webConten
 Replace the no-op `captureStart`/`captureStop` handlers in `wireIpc` with:
 
 ```ts
-  ipcMain.handle(IPC.captureStart, async () => {
-    if (!win || capture) {
-      return
-    }
+ipcMain.handle(IPC.captureStart, async () => {
+  if (!win || capture) {
+    return
+  }
 
-    capture = await startCapture(win.site.webContents, resolve(config.rawDir, 'responses'), (counts) =>
-      send(IPC.captureProgress, { phase: 'capturing', ...counts } satisfies ProgressPayload),
-    )
-    send(IPC.captureProgress, { phase: 'capturing', json: 0, binaries: 0 } satisfies ProgressPayload)
-  })
+  capture = await startCapture(win.site.webContents, resolve(config.rawDir, 'responses'), (counts) =>
+    send(IPC.captureProgress, { phase: 'capturing', ...counts } satisfies ProgressPayload),
+  )
+  send(IPC.captureProgress, { phase: 'capturing', json: 0, binaries: 0 } satisfies ProgressPayload)
+})
 
-  ipcMain.handle(IPC.captureStop, async () => {
-    if (!capture) {
-      return
-    }
+ipcMain.handle(IPC.captureStop, async () => {
+  if (!capture) {
+    return
+  }
 
-    const { store } = capture
+  const { store } = capture
 
-    await capture.stop()
-    capture = undefined
-    send(IPC.captureProgress, { phase: 'done', json: store.json.length, binaries: store.binaries.length } satisfies ProgressPayload)
-  })
+  await capture.stop()
+  capture = undefined
+  send(IPC.captureProgress, {
+    phase: 'done',
+    json: store.json.length,
+    binaries: store.binaries.length,
+  } satisfies ProgressPayload)
+})
 ```
 
 Add `resolve` to the `node:path` import: `import { join, resolve } from 'node:path'`.
@@ -915,8 +932,8 @@ Add `resolve` to the `node:path` import: `import { join, resolve } from 'node:pa
 In `app.whenReady().then(...)`, before `createWindow`, add:
 
 ```ts
-  config.outputDir = join(app.getPath('documents'), 'carnet-sante-extract', 'output')
-  config.rawDir = join(app.getPath('documents'), 'carnet-sante-extract', 'raw')
+config.outputDir = join(app.getPath('documents'), 'carnet-sante-extract', 'output')
+config.rawDir = join(app.getPath('documents'), 'carnet-sante-extract', 'raw')
 ```
 
 - [ ] **Step 4: Manual verification — capture writes raw JSON**
@@ -940,6 +957,7 @@ git commit -m "feat: CDP network capture to raw/responses"
 On Stop, fetch every flagged PDF through `net.fetch` with the partition's cookies and save to `raw/documents/`.
 
 **Files:**
+
 - Create: `src/main/downloader.ts`
 - Modify: `src/main/index.ts`
 
@@ -981,7 +999,11 @@ const fetchWithRetry = async (session: Session, url: string): Promise<Buffer> =>
 
 // Phase 1: download every flagged binary by URL into `dir`, named from the URL slug.
 // Phase 3 replaces this with descriptor + manifest-skip logic once collectors supply metadata.
-export const downloadCaptured = async (session: Session, binaries: CapturedResponse[], dir: string): Promise<number> => {
+export const downloadCaptured = async (
+  session: Session,
+  binaries: CapturedResponse[],
+  dir: string,
+): Promise<number> => {
   let saved = 0
 
   await mapLimit(binaries, config.downloadConcurrency, async (binary, i) => {
@@ -1018,27 +1040,31 @@ import { downloadCaptured } from './downloader.js'
 Replace the `captureStop` handler body with:
 
 ```ts
-  ipcMain.handle(IPC.captureStop, async () => {
-    if (!capture) {
-      return
-    }
+ipcMain.handle(IPC.captureStop, async () => {
+  if (!capture) {
+    return
+  }
 
-    const { store } = capture
+  const { store } = capture
 
-    await capture.stop()
-    capture = undefined
-    send(IPC.captureProgress, { phase: 'downloading', json: store.json.length, binaries: store.binaries.length } satisfies ProgressPayload)
+  await capture.stop()
+  capture = undefined
+  send(IPC.captureProgress, {
+    phase: 'downloading',
+    json: store.json.length,
+    binaries: store.binaries.length,
+  } satisfies ProgressPayload)
 
-    const ses = session.fromPartition(config.partitionName)
-    const downloaded = await downloadCaptured(ses, store.binaries, resolve(config.rawDir, 'documents'))
+  const ses = session.fromPartition(config.partitionName)
+  const downloaded = await downloadCaptured(ses, store.binaries, resolve(config.rawDir, 'documents'))
 
-    send(IPC.captureProgress, {
-      phase: 'done',
-      json: store.json.length,
-      binaries: store.binaries.length,
-      downloaded,
-    } satisfies ProgressPayload)
-  })
+  send(IPC.captureProgress, {
+    phase: 'done',
+    json: store.json.length,
+    binaries: store.binaries.length,
+    downloaded,
+  } satisfies ProgressPayload)
+})
 ```
 
 - [ ] **Step 3: Manual verification — a PDF downloads with the live session**
@@ -1062,6 +1088,7 @@ git commit -m "feat: authed PDF download via net.fetch on stop"
 Produce a double-click installer.
 
 **Files:**
+
 - Create: `electron-builder.yml`
 - Modify: `.gitignore`
 
@@ -1097,6 +1124,7 @@ release
 ```bash
 pnpm package
 ```
+
 Expected: `electron-vite build` emits `out/{main,preload,renderer}`, then electron-builder writes `release/Carnet Sante Extract Setup <version>.exe` (plus an unpacked dir).
 
 - [ ] **Step 4: Manual verification — install + launch the packaged app**
@@ -1119,12 +1147,13 @@ git commit -m "build: electron-builder NSIS Windows installer"
 Bring README + CLAUDE.md in line with the Electron platform.
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `CLAUDE.md`
 
 - [ ] **Step 1: Rewrite `README.md`**
 
-```markdown
+````markdown
 # carnet-sante-extract
 
 Desktop app that pulls **everything** out of [Carnet Santé Québec](https://carnetsante.gouv.qc.ca) — the Quebec government health portal that has no API and no bulk download. Open the app, log in by hand (MFA and all), and it takes over the live session: it captures the structured data the site renders + downloads every PDF, ready to be normalized into clean **Markdown + JSON** for an LLM later.
@@ -1137,6 +1166,7 @@ No cloud, no API keys, no LLM in the loop. Everything stays on your machine.
 pnpm install
 pnpm dev        # launches the app: log in, click Start capture, walk every section, Stop & save
 ```
+````
 
 ## Build the installer
 
@@ -1164,8 +1194,9 @@ raw/
 
 ## Status
 
-Phase 1 (Electron capture app) is implemented. Phase 2 = a live recon pass to map the site's endpoints; Phase 3 = targeted per-domain collectors + normalization. See `docs/superpowers/specs/2026-05-23-carnet-sante-extract-electron-design.md`.
-```
+Phase 1 (Electron capture app) is implemented. Phase 2 = a live recon pass to map the site's endpoints; Phase 3 = targeted per-domain collectors + normalization. See `docs/superpowers/specs/2026-05-23-carnet-sante-extract-design.md`.
+
+````
 
 - [ ] **Step 2: Update `CLAUDE.md`**
 
@@ -1183,7 +1214,7 @@ pnpm package    # build + electron-builder NSIS installer → release/
 pnpm test       # vitest (pure logic)
 pnpm check      # format + lint + typecheck
 pnpm fix        # auto-format + lint fix
-```
+````
 
 - Architecture section: replace the three Playwright layers with: (1) **`src/main/`** — Electron lifecycle, `BaseWindow` + toolbar/site `WebContentsView`s (`window.ts`), persistent `persist:carnet` session, CDP capture (`capture.ts`), authed `net.fetch` PDF download (`downloader.ts`), IPC orchestration (`index.ts`). (2) **`src/capture/store.ts` + `src/preload/` + `src/renderer/` + `src/shared/`** — pure capture model, contextBridge API, control toolbar UI, IPC contracts. (3) **`src/normalize/` + `src/output/`** — unchanged pure layer (Phase 3). Note the package uses **pnpm** still, and `bin`/CLI is gone.
 
@@ -1195,6 +1226,7 @@ pnpm fix        # auto-format + lint fix
 pnpm check
 pnpm test
 ```
+
 Expected: format, lint, typecheck, and all vitest suites pass.
 
 - [ ] **Step 4: Commit**

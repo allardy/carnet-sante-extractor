@@ -9,12 +9,7 @@
     "nursery": "off"
   },
   "jsPlugins": ["@stylistic/eslint-plugin"],
-  "ignorePatterns": [
-    "pnpm-lock.yaml",
-    "**/node_modules/**/*",
-    "**/dist/**/*",
-    "**/vitest.config.ts"
-  ],
+  "ignorePatterns": ["pnpm-lock.yaml", "**/node_modules/**/*", "**/dist/**/*", "**/vitest.config.ts"],
   "rules": {
     "typescript/no-floating-promises": "error",
     "typescript/ban-ts-comment": "warn",

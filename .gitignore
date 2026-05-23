@@ -3,6 +3,8 @@ node_modules
 
 # build
 dist
+out
+release
 *.tsbuildinfo
 
 # coverage

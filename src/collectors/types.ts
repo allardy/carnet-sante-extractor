@@ -1,10 +1,14 @@
-import { type Page } from 'playwright'
-
-import { type CaptureStore } from '../browser/capture.js'
+import { type CaptureStore } from '../capture/store.js'
 import { type Domain } from '../config.js'
 
+// Backed in Phase 3 by an Electron WebContents adapter; collectors only see this interface.
+export type Navigator = {
+  goto: (pathOrUrl: string) => Promise<void>
+  waitForJson: (match: (url: string) => boolean, timeoutMs?: number) => Promise<unknown>
+}
+
 export type CollectContext = {
-  page: Page
+  nav: Navigator
   capture: CaptureStore
 }
 
