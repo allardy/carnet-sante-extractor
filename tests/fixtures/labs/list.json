@@ -1,11 +1,13 @@
 [
   {
-    "NoReq": "1234567890",
-    "OIDSIL": "9.99.999.99.999.9.99.9.9.999.9",
-    "TypeRapp": "LAB",
-    "DateService": "2024-10-15T08:00:00-04:00",
-    "Description": "Bilan sanguin standard",
-    "NomPrescripteur": "SMITH",
-    "PrenomPrescripteur": "JOHN"
+    "id": "1234567890",
+    "trackingId": "TRACK001",
+    "datePrelevement": "2024-10-15T08:00:00-04:00",
+    "dateEnvoiPrescripteur": null,
+    "statutRapport": "Disponible",
+    "nomPrescripteur": "SMITH",
+    "prenomPrescripteur": "JOHN",
+    "dateDisponibiliteResultatAnalyse": "2024-10-16T14:00:00-04:00",
+    "indResultatCovid": false
   }
 ]

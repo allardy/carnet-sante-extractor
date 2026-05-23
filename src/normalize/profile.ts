@@ -39,7 +39,7 @@ export const normalizeProfile = (raw: ProfileRaw): CleanProfile => {
     birthDate: citoyen.DateNaissance.slice(0, 10),
     sex: citoyen.Sexe,
     cardNumber: carte?.Numero,
-    cardExpires: carte?.DateExpiration.slice(0, 10),
+    cardExpires: carte?.DateExpiration?.slice(0, 10),
     email: email?.Adresse,
     phone: phone?.Numero,
     address: address || undefined,

@@ -23,20 +23,25 @@ The build is unsigned, so Windows SmartScreen warns on first launch — **More i
 
 ## Output
 
-Written to `~/carnet-sante-extract/`:
+Written to `~/carnet-sante-extract/` — every run lives in its own ISO-timestamped subfolder so prior runs are preserved:
 
 ```
-raw/<ISO-timestamp>/   # one folder per capture/extract run
-  responses/   captured JSON
-  documents/   downloaded PDFs (Phase 1 raw names)
+raw/<ISO-timestamp>/   # one folder per capture/extract run — full server payloads
+  responses/   captured JSON (Capture flow)
+  data/        per-domain raw JSON (Extract flow)
+  documents/   downloaded PDFs (raw filenames by report id)
+  log.jsonl    one-event-per-line for tooling
+  log.txt      same events, human-readable
 
-output/
-  data/        clean structured JSON (one file per domain)
-  markdown/    per-domain markdown rollups + summary.md
-  documents/   renamed PDFs organized by type
+output/<ISO-timestamp>/   # one folder per extract run — clean deliverables
+  data/        normalized JSON (or raw fallback if a schema misses)
+  markdown/    per-domain markdown rollups, linked to PDFs + raw JSON
+  documents/   renamed PDFs organized by type (imagerie/, laboratoire/)
   manifest.json
   summary.md   top-level health record summary
 ```
+
+The toolbar's **Open output** button lands you in the most recent run's folder automatically.
 
 ## Privacy
 

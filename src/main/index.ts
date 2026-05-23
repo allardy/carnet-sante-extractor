@@ -1,14 +1,38 @@
-import { app, ipcMain, net, session, shell } from 'electron'
+import { app, ipcMain, Menu, session, shell, type WebContents } from 'electron'
+import { readdir, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 import { collectors } from '../collectors/index.js'
 import { config } from '../config.js'
 import { IPC, type ExtractProgressPayload, type ProgressPayload } from '../shared/ipc.js'
 
+import { authHeaders, installAuthCapture, seedAuthFromSessionStorage } from './auth.js'
 import { type CaptureHandle, startCapture } from './capture.js'
 import { downloadCaptured } from './downloader.js'
 import { runExtraction } from './orchestrator.js'
 import { type AppWindow, createWindow, type RendererEntry } from './window.js'
+
+const mostRecentRunDir = async (parent: string): Promise<string> => {
+  const entries = await readdir(parent)
+  const dirs = (
+    await Promise.all(
+      entries.map(async (name) => {
+        const full = resolve(parent, name)
+        const s = await stat(full)
+
+        return s.isDirectory() ? { name, full, mtime: s.mtimeMs } : null
+      }),
+    )
+  ).filter((d): d is { name: string; full: string; mtime: number } => d !== null)
+
+  if (dirs.length === 0) {
+    return parent
+  }
+
+  dirs.sort((a, b) => b.mtime - a.mtime)
+
+  return dirs[0]!.full
+}
 
 let win: AppWindow | undefined
 let capture: CaptureHandle | undefined
@@ -74,7 +98,14 @@ const wireIpc = (): void => {
   })
 
   ipcMain.handle(IPC.openOutput, async () => {
-    await shell.openPath(config.rawDir)
+    // Prefer the most recent extract run (output/<run>) — that's the clean deliverable.
+    // Fall back to the most recent capture run (raw/<run>) if no extract has happened yet,
+    // then to the base rawDir if neither exists.
+    const target = await mostRecentRunDir(config.outputDir)
+      .catch(() => mostRecentRunDir(config.rawDir))
+      .catch(() => config.rawDir)
+
+    await shell.openPath(target)
   })
 
   ipcMain.handle(IPC.extractStart, async () => {
@@ -85,18 +116,18 @@ const wireIpc = (): void => {
     const sess = session.fromPartition(config.partitionName)
     const runId = new Date().toISOString().replace(/[:.]/g, '-')
     const runRawDir = resolve(config.rawDir, runId)
+    const runOutputDir = resolve(config.outputDir, runId)
 
     try {
+      await seedAuthFromSessionStorage(win.site.webContents)
       await runExtraction(
         win.site.webContents,
         sess,
-        config.outputDir,
+        runOutputDir,
         runRawDir,
         async () => {
-          const r = await net.fetch('https://www.carnetsante.gouv.qc.ca/api/1/Citoyens', {
-            session: sess,
-            useSessionCookies: true,
-          } as never)
+          const url = 'https://www.carnetsante.gouv.qc.ca/api/1/Citoyens'
+          const r = await sess.fetch(url, { headers: authHeaders(url) })
 
           if (!r.ok) {
             throw new Error(`Citoyens: HTTP ${r.status}`)
@@ -118,14 +149,9 @@ const wireIpc = (): void => {
           } satisfies ExtractProgressPayload),
       )
     } catch (err) {
-      send(IPC.extractProgress, {
-        phase: 'error',
-        domainsDone: 0,
-        domainsTotal: collectors.length,
-        rawBytes: 0,
-        downloads: 0,
-        error: (err as Error).message,
-      } satisfies ExtractProgressPayload)
+      // runExtraction already emitted an error progress event with accurate domainsDone — we
+      // just log here as a safety net in case something escaped the orchestrator's try/finally.
+      console.error('[extract] runExtraction threw past its handler', err)
     }
   })
 
@@ -135,6 +161,25 @@ const wireIpc = (): void => {
 }
 
 void app.whenReady().then(() => {
+  // BaseWindow has no own webContents, so the default app menu's role-based "Toggle Developer Tools"
+  // crashes when clicked. Drop the default menu — F12 still toggles DevTools via the binding below.
+  Menu.setApplicationMenu(null)
+
+  // Override the partition's UA to a plain Chrome string. Electron's default UA contains "Electron/<v>",
+  // which carnetsante.gouv.qc.ca treats as a non-browser client and 403s on its API. This affects every
+  // request on the partition (the embedded WebView and any session.fetch from the main process).
+  const partitionSession = session.fromPartition(config.partitionName)
+
+  partitionSession.setUserAgent(
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+    'fr-CA,fr;q=0.9,en;q=0.8',
+  )
+
+  // Intercept the partition's outgoing requests to capture the SPA's Bearer JWT (Angular
+  // attaches it via HttpInterceptor; we have no other way to read it). Captured token is
+  // then replayed by session.fetch calls from Navigator/orchestrator/downloader/citizenId.
+  installAuthCapture(partitionSession)
+
   const preloadPath = join(import.meta.dirname, '../preload/index.mjs')
 
   const base = join(app.getPath('home'), 'carnet-sante-extract')
@@ -145,6 +190,19 @@ void app.whenReady().then(() => {
   win = createWindow(rendererEntry(), preloadPath)
   win.site.webContents.on('did-navigate', (_event, url) => win?.toolbar.webContents.send(IPC.siteUrl, url))
   win.site.webContents.on('did-navigate-in-page', (_event, url) => win?.toolbar.webContents.send(IPC.siteUrl, url))
+
+  // BaseWindow has no own webContents, so the default menu's toggleDevTools target is undefined
+  // and the role-based binding crashes. Bind F12 directly to each WebContentsView instead.
+  const bindDevTools = (wc: WebContents): void => {
+    wc.on('before-input-event', (_event, input) => {
+      if (input.key === 'F12' && input.type === 'keyDown') {
+        wc.toggleDevTools()
+      }
+    })
+  }
+
+  bindDevTools(win.site.webContents)
+  bindDevTools(win.toolbar.webContents)
   wireIpc()
 })
 

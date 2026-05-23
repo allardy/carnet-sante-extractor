@@ -1,4 +1,4 @@
-import { net, type Session } from 'electron'
+import { type Session } from 'electron'
 import { resolve } from 'node:path'
 
 import { type CapturedResponse, safeName } from '../capture/store.js'
@@ -7,15 +7,14 @@ import { mapLimit, sleep } from '../util/concurrency.js'
 import { writeBuffer } from '../util/fs.js'
 import { log } from '../util/log.js'
 
-type FetchInit = RequestInit & { session?: Session; useSessionCookies?: boolean }
+import { authHeaders } from './auth.js'
 
 const fetchWithRetry = async (session: Session, url: string): Promise<Buffer> => {
   let lastError: unknown
 
   for (let attempt = 0; attempt <= config.downloadRetries; attempt += 1) {
     try {
-      const init: FetchInit = { session, useSessionCookies: true }
-      const response = await net.fetch(url, init)
+      const response = await session.fetch(url, { headers: authHeaders(url) })
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`)

@@ -23,10 +23,13 @@ export const coordonneesSchema = z.object({
   Province: z.string().optional(),
 })
 
-export const carteSchema = z.object({
-  Numero: z.string(),
-  DateExpiration: isoDate,
-})
+// Fields optional — some citizens have no card on file (compounded situations, etc.)
+export const carteSchema = z
+  .object({
+    Numero: z.string().optional(),
+    DateExpiration: isoDate.optional(),
+  })
+  .passthrough()
 
 export const courrielSchema = z.object({
   Adresse: z.string(),
@@ -82,8 +85,9 @@ export const ordonnanceSchema = z.object({
   NomPrescripteur: z.string(),
   PrenomPrescripteur: z.string(),
   Pharmacie: z.string(),
-  NombreDelivrancesAutorisees: z.number(),
-  NombreDelivrancesRestantes: z.number(),
+  // Compounded medications return null for these fields
+  NombreDelivrancesAutorisees: z.number().nullable(),
+  NombreDelivrancesRestantes: z.number().nullable(),
   MedicamentPrescrit: medicamentSchema,
   DernierService: z
     .object({
@@ -108,8 +112,8 @@ export type CleanMedication = {
   pharmacy: string
   prescribedAt: string
   durationDays: number
-  refillsAuthorized: number
-  refillsRemaining: number
+  refillsAuthorized: number | null
+  refillsRemaining: number | null
   lastDispensedAt?: string
   klass: string
 }
@@ -136,26 +140,35 @@ export type CleanAppointment = {
   status?: string
 }
 
+// Real shape has no Id field — id is synthesized from date+index in the normalizer
 export const serviceSchema = z.object({
-  Id: z.string(),
   DateService: isoDate,
-  Description: z.string().optional(),
-  Etablissement: z.string().optional(),
-  Specialite: z.string().optional(),
-  Montant: z.number().optional(),
-  Statut: z.string().optional(),
+  DescriptionService: z.string().optional(),
+  DescriptionServiceAnglais: z.string().optional(),
+  PrecisionService: z.string().optional(),
+  PrecisionServiceAnglais: z.string().optional(),
+  NomProfessionnel: z.string().optional(),
+  PrenomProfessionnel: z.string().optional(),
+  MontantPayeRAMQ: z.number().optional(),
+  LieuPhysique: z
+    .object({ Nom: z.string().optional(), Adresse: z.string().optional(), CodePostal: z.string().optional() })
+    .nullable()
+    .optional(),
+  LieuGeographique: z.unknown().optional(),
 })
 
 export const servicesListSchema = z.array(serviceSchema)
 
 export type CleanService = {
-  id: string
+  id: string // synthesized from date+index (real shape has no server id)
   date: string
   description?: string
+  descriptionEn?: string
+  precision?: string
+  practitioner?: string // "PRENOM NOM"
+  amountPaid?: number
   facility?: string
-  specialty?: string
-  amount?: number
-  status?: string
+  address?: string
 }
 
 export const imagingListItemSchema = z.object({
@@ -171,18 +184,22 @@ export const imagingListItemSchema = z.object({
 
 export const imagingListSchema = z.array(imagingListItemSchema)
 
-export const imagingDetailSchema = z.object({
-  NumeroExamen: z.string(),
-  RapportsImagerie: z
-    .array(
-      z.object({
-        IdRapport: z.string(),
-        DateRapport: isoDate,
-        Statut: z.string().optional(),
-      }),
-    )
-    .nullable(),
+const rapportImagerieSchema = z.object({
+  IdRapport: z.string(),
+  DateRapport: isoDate,
+  Statut: z.string().optional(),
+  NumeroExamen: z.string().nullable().optional(),
+  DateDisponibiliteRapport: z.string().nullable().optional(),
 })
+
+// Real responses are a direct array of rapport entries; older API may wrap them in an object
+export const imagingDetailSchema = z.union([
+  z.array(rapportImagerieSchema),
+  z.object({
+    NumeroExamen: z.string().optional(),
+    RapportsImagerie: z.array(rapportImagerieSchema).nullable().optional(),
+  }),
+])
 
 export type CleanImagingExam = {
   examId: string
@@ -192,14 +209,17 @@ export type CleanImagingExam = {
   reportIds: string[]
 }
 
+// Real list shape is camelCase; replaced from Phase-3 best-guess PascalCase
 export const prelevementListItemSchema = z.object({
-  NoReq: z.string(),
-  OIDSIL: z.string(),
-  TypeRapp: z.literal('LAB'),
-  DateService: isoDate.optional(),
-  Description: z.string().optional(),
-  NomPrescripteur: z.string().optional(),
-  PrenomPrescripteur: z.string().optional(),
+  id: z.string(),
+  trackingId: z.string().optional(),
+  datePrelevement: isoDate.optional(),
+  dateEnvoiPrescripteur: isoDate.nullable().optional(),
+  statutRapport: z.string().optional(),
+  nomPrescripteur: z.string().optional(),
+  prenomPrescripteur: z.string().optional(),
+  dateDisponibiliteResultatAnalyse: isoDate.nullable().optional(),
+  indResultatCovid: z.boolean().optional(),
 })
 
 export const prelevementListSchema = z.array(prelevementListItemSchema)
@@ -224,7 +244,8 @@ export const labResultsSchema = z.object({
 })
 
 export type CleanLab = {
-  noReq: string
+  id: string // server-side opaque id from list
+  noReq: string // kept for backward compat; same as id
   date: string
   description?: string
   prescriber?: string

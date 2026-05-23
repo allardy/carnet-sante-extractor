@@ -10,9 +10,12 @@ describe('normalizeMedicalServices', () => {
     const result = normalizeMedicalServices(raw)
 
     expect(result).toHaveLength(1)
-    expect(result[0]?.id).toBe('SVC0001')
-    expect(result[0]?.date).toBe('2026-04-10')
-    expect(result[0]?.facility).toBe('Clinique Example')
+    expect(result[0]?.id).toBe('2019-08-05-0')
+    expect(result[0]?.date).toBe('2019-08-05')
+    expect(result[0]?.facility).toBe('LA CITE MEDICALE (SAINTE-FOY)')
+    expect(result[0]?.practitioner).toBe('CAROLINE LAVERTU')
+    expect(result[0]?.amountPaid).toBe(46.6)
+    expect(result[0]?.description).toBe('Visite, examen ou consultation')
   })
 
   it('handles empty array', () => {

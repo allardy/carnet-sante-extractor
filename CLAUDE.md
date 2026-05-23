@@ -39,10 +39,19 @@ Drive the UI like a human, **passively capture** the JSON it fires (hybrid), the
 
 ## Build status
 
-- [x] **Phase 1** — Electron capture app (with OneDrive + per-run-clobber patches from Phase 3 Task 1). `pnpm package` ships a double-click `.exe`; capture writes to `~/carnet-sante-extract/raw/<ISO-timestamp>/responses/`.
-- [x] **Phase 2** — live recon completed; endpoint surface mapped in `docs/superpowers/notes/2026-05-23-phase2-endpoint-map.md`.
-- [x] **Phase 3** — collectors + normalize + markdown + manifest + summary. Extract button in the toolbar runs the full pipeline.
+- [x] **Phase 1** — Electron capture app + NSIS installer. `pnpm package` ships a double-click `.exe`. Output rooted at `~/carnet-sante-extract/` (never under Documents/, never OneDrive-redirected). Every capture/extract run lands in its own ISO-timestamped subfolder.
+- [x] **Phase 2** — live recon mapped the endpoint surface; see `docs/superpowers/notes/2026-05-23-phase2-endpoint-map.md`.
+- [x] **Phase 3** — collectors + normalize + markdown + manifest + summary. Extract button runs the full pipeline.
+- [x] **Phase 3 hardening** (live-tuned over multiple iterations):
+  - Bearer JWT bootstrap from oidc-client-js sessionStorage + live capture via `webRequest.onBeforeSendHeaders` (token auto-refreshes mid-run).
+  - Tolerant normalizers — schemas are now lenient enough to ride through PascalCase/camelCase divergence and nullable fields. Per-domain failures write the raw payload as fallback so output is never empty.
+  - Per-endpoint date-window caps respected (imaging ≤ 6y, medications 2y, labs configurable — defaulted to 1y while iterating).
+  - Imaging DetailRapport handled as direct array (real shape) AND object-wrapped (legacy).
+  - Lab PDFs extracted from inline base64 in the /Rapports response (not at a separate URL like imaging).
+  - Structured streaming logger writes `log.jsonl` + `log.txt` to each raw run for postmortem.
+  - Markdown files now link to PDFs (`../documents/...`) and raw JSON (`../data/...`), year-grouped, with footer back to summary.
 - [ ] **Phase 4 (optional)** — vaccines via Carnet de vaccination (separate portal, separate recon).
+- [ ] **Profile sub-resources (carte/coordonnees/courriel/phone)** — Phase 2 didn't read response bodies; Phase 3 lenient schemas accept anything but the normalize fields may need refinement once shapes are seen.
 
 ## Testing
 

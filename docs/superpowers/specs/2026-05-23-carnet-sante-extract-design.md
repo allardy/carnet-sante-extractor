@@ -57,9 +57,27 @@ The `CaptureStore` / `CapturedResponse` types are pure (`src/capture/store.ts`) 
 
 ## Authed PDF download
 
-`net.fetch(descriptor.url, { session, useSessionCookies: true })` from the main process; the partition's cookies attach automatically. `mapLimit` caps concurrency at `config.downloadConcurrency`, `requestDelayMs` paces between requests, and `downloadRetries` controls retry-with-linear-backoff. Failures on individual PDFs are logged but don't abort the batch.
+`session.fetch(url, { headers: authHeaders(referer) })` from the main process. `authHeaders` carries the Bearer JWT we captured (see "Authentication" below) plus the SPA-shaped Accept/Accept-Language/Referer. `mapLimit` caps concurrency, `requestDelayMs` paces requests, `downloadRetries` controls retry-with-linear-backoff. Failures on individual PDFs land in a sidecar `<id>.error.json` and the batch continues.
 
-Phase 1 names files from the URL slug (`safeName(url, i).pdf`). Phase 3 replaces this with descriptor-driven naming + a manifest-skip path once collectors supply metadata.
+Phase 1 named files from the URL slug. Phase 3's `output/rename.ts` produces deterministic filenames like `documents/imagerie/CLAVICULE_G_2024-11-13.pdf` from descriptor metadata, with collision suffixes when needed.
+
+**Two PDF acquisition shapes seen in practice:**
+
+- **Imaging**: report is at a separate URL — `GET /Citoyens/{id}/ExamenImagerie/{examId}/DetailRapport/{reportId}/Rapport` returns `application/pdf` directly. The reportId comes from the DetailRapport response (or, when that doesn't surface one, from a derived pattern `1061642060${examId}0` we confirmed empirically).
+- **Labs**: PDFs are returned **inline as base64** inside the `/Prelevements/{id}/Rapports` JSON response. `src/util/pdf-extract.ts` walks the JSON tree finding base64 strings whose decoded prefix is `%PDF`. Found PDFs are attached as `DocumentDescriptor.inlineData` and the orchestrator decodes them instead of issuing a fetch.
+
+## Authentication
+
+The Carnet Santé SPA is Angular and uses **oidc-client-js** against RAMQ's ADFS. After ClicSEQUR login the SPA holds a short-lived (~1h) Bearer JWT in `sessionStorage` under the key `oidc.user:https://fedapp.ramq.gouv.qc.ca/adfs:http://ais-citoyen-prod` (value is a JSON object containing `access_token`). An Angular `HttpInterceptor` attaches that JWT to every `/api/1/*` request. **Plain `fetch()` and `session.fetch()` bypass the interceptor**, so direct calls from the main process get 403 even with the partition cookies.
+
+Our workaround (`src/main/auth.ts`):
+
+1. On app start, `installAuthCapture` registers `session.webRequest.onBeforeSendHeaders` on the partition. Every outgoing request to `*.carnetsante.gouv.qc.ca` or `*.ramq.gouv.qc.ca` is scanned for an `Authorization: Bearer …` header and the latest value is cached.
+2. On `extractStart`, `seedAuthFromSessionStorage` runs JS inside the site `WebContents` to read the oidc-client-js user object directly — this seeds the cache before the SPA has had a chance to fire a fresh request, so the very first extract click works without waiting.
+3. Every `session.fetch` from main goes through `authHeaders(referer)`, which throws if no Bearer has been captured yet (with a clear "navigate the site once before extracting" message).
+4. The partition's User-Agent is overridden to a plain Chrome UA — Electron's default UA contains "Electron/<v>" and the gov server treats that as a non-browser client (403s).
+
+JWT refresh is automatic: the SPA periodically renews; our interceptor sees the new Authorization on subsequent fetches and updates the cached value.
 
 ## Module layout
 
@@ -108,22 +126,49 @@ electron-builder.yml    # win nsis target, appId, productName
 
 ## Output structure
 
-Written to `~/carnet-sante-extract/`:
+Written to `~/carnet-sante-extract/`. Every run lives in its own ISO-timestamped subfolder so prior runs are preserved.
 
 ```
 raw/<ISO-timestamp>/
-  responses/   captured JSON (one file per response) + index.json
-  documents/   downloaded PDFs (one folder per capture/extract run)
+  responses/   captured JSON (Capture flow only) + index.json
+  data/        per-domain raw JSON (Extract flow)
+  documents/   downloaded PDFs (raw filenames, by report id)
+  log.jsonl    structured one-event-per-line log
+  log.txt      same events, human-readable
 
-output/
+output/<ISO-timestamp>/
   documents/   renamed PDFs organized by type (laboratoire/, imagerie/, ...)
-  data/        clean structured JSON, one file per domain
-  markdown/    per-domain rollups + summary.md
+  data/        normalized JSON (or raw payload fallback if a schema misses)
+  markdown/    per-domain rollups linked to PDFs + raw JSON, year-grouped
   manifest.json
   summary.md
 ```
 
-`raw/` is the re-normalization source: Phase 3 can re-run normalize/output entirely offline against captured fixtures.
+`raw/<run>/` is the re-normalization source: normalize/output can be re-run entirely offline against captured fixtures.
+
+## Per-endpoint constraints
+
+Discovered during Phase 3 live runs — the server caps date ranges per endpoint and 500s on requests wider than its limit:
+
+| Endpoint | Max range (observed) | Notes |
+|---|---|---|
+| `/Citoyens/{id}/ExamensImagerie?DateDebut=...&DateFin=...` | ~6 years | 500 on 7-year window |
+| `/Citoyens/{id}/Medications?Dates` | ~2 years | The SPA queries this default. Wider may work but unverified. |
+| `/Citoyens/{id}/ServicesMedicauxAssures?Dates` | ~7 years | The SPA's own default. |
+| `/Prelevement/.../Prelevements?Dates` | per-year sweep | The SPA queries one year at a time. Our collector mirrors this; window is configurable (defaulted to 1 year during iteration to avoid spam during debugging). |
+| `/Citoyens/{id}/RendezVous?Dates` | per-year sweep | Same per-year pattern as labs. |
+
+## API shape conventions
+
+The gov API mixes **PascalCase** (older endpoints — `/Citoyens`, `/Medications`, `/ExamensImagerie`, `/ServicesMedicauxAssures`) and **camelCase** (newer endpoints — `/Prelevement`). Some endpoints return arrays at the root, others wrap in objects. Notable quirks:
+
+- **`/ExamenImagerie/{examId}/DetailRapport`** returns a **direct array** of rapport objects (no wrapping `{RapportsImagerie: [...]}`). Older shape may exist; our normalizer accepts both via a `z.union`.
+- **`/ServicesMedicauxAssures`** items have **no `Id` field** at all — we synthesize one from `${date}-${index}` to give downstream code a stable key.
+- **Medications `NombreDelivrancesAutorisees`/`Restantes`** are sometimes `null` (compounded meds), so the schema declares them nullable.
+- **Labs list items** are camelCase: `id` (opaque, ready to use in subsequent URLs), `trackingId` (maps directly to `?Tracking=`), `datePrelevement`, `nomPrescripteur`, etc.
+- **Connected user**: `/api/1/Citoyens` (no path suffix, no id) returns the current user. `/Citoyens/{id}` itself does NOT exist — only its sub-resources do.
+
+All schemas in `src/normalize/schemas.ts` are designed to be **lenient** on optionality so a single field mismatch in a list of N items doesn't fail the whole normalize. When a normalize does fail, `writeOutput` writes the raw payload to `output/<run>/data/<domain>.json` as fallback so the output dir is never empty.
 
 ## Build sequence
 
@@ -146,10 +191,10 @@ output/
 
 TDD on the pure logic — `capture/store.ts`, `output/rename.ts`, `output/manifest.ts`, `normalize/markdown.ts` — against saved fixtures (vitest). Electron main-process capture/download/navigator is smoke-tested against recorded fixtures, not unit-tested against the live gov site.
 
-## Open questions (resolved during Phase 2)
+## Open questions (resolved during Phase 2 + 3)
 
-- Exact login/MFA flow and the most reliable "logged-in" signal for the status bar.
-- Cookie session vs short-lived bearer token (affects whether collectors must re-trigger page activity to keep a token fresh).
-- The real set of data domains and their endpoint shapes (the expected list — labs, medications, vaccines, imaging, appointments, documents — will be confirmed/adjusted from the capture).
+- ~~Cookie session vs short-lived bearer token~~ → **Bearer JWT** (~1h, RAMQ ADFS-issued, stored in oidc-client-js sessionStorage, captured at network layer for refresh). See "Authentication".
+- ~~Data domain endpoint shapes~~ → mapped in `docs/superpowers/notes/2026-05-23-phase2-endpoint-map.md`, with shape discoveries documented in this spec's "API shape conventions" section.
+- **Carte / Coordonnees / Courriel / TelephoneMobile / SituationMedecinFamille response shapes** — still unread. Phase 3 schemas are lenient (passthrough + all-optional), so a normalize won't fail outright, but specific field mappings need refinement once response bodies are inspected.
 
 Vaccines are out of scope for this app; the Quebec vaccine portal (Carnet de vaccination via Clic Santé) is separate and would be a Phase 4 recon.

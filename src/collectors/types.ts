@@ -19,6 +19,10 @@ export type DocumentDescriptor = {
   title: string
   type: string
   date?: string
+  // Some endpoints (notably labs /Rapports) return the PDF binary inline as base64 inside the
+  // JSON response rather than at a separate URL. When `inlineData` is set, the orchestrator
+  // decodes it instead of calling fetch on `url` (which may be a placeholder).
+  inlineData?: string
 }
 
 export type DomainResult = {

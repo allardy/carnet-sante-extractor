@@ -53,7 +53,18 @@ window.api.onExtractProgress((payload) => {
   extracting = payload.phase === 'running' || payload.phase === 'normalizing' || payload.phase === 'writing'
   extractEl.textContent = extracting ? 'Stop extract' : 'Extract everything'
 
-  const tail = payload.currentDomain ? ` — ${payload.currentDomain}` : ''
+  const parts: string[] = []
+
+  if (payload.currentDomain) {
+    parts.push(payload.currentDomain)
+  }
+
+  if (payload.error) {
+    parts.push(payload.error)
+  }
+
+  const tail = parts.length > 0 ? ` — ${parts.join(' — ')}` : ''
 
   statusEl.textContent = `extract: ${payload.phase} (${payload.domainsDone}/${payload.domainsTotal})${tail}`
+  statusEl.title = payload.error ?? ''
 })

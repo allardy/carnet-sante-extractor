@@ -14,25 +14,47 @@ export const normalizeLabs = (raw: LabsRaw): CleanLab[] => {
   const list = prelevementListSchema.parse(raw.list)
 
   return list.map((l) => {
-    const reports = raw.rapports[l.NoReq] ? rapportsArraySchema.parse(raw.rapports[l.NoReq]) : []
-    const resultsRaw = raw.results[l.NoReq]
-    const results = resultsRaw ? labResultsSchema.parse(resultsRaw).Analyses : []
+    const reportsRaw = raw.rapports[l.id]
+    const reports =
+      reportsRaw && !(reportsRaw as Record<string, unknown>)['__error']
+        ? (() => {
+            const arr = Array.isArray(reportsRaw) ? reportsRaw : []
+
+            try {
+              return rapportsArraySchema.parse(arr)
+            } catch {
+              return []
+            }
+          })()
+        : []
+
+    const resultsRaw = raw.results[l.id]
+    let analyses: CleanLab['analyses'] = []
+
+    try {
+      if (resultsRaw) {
+        analyses = labResultsSchema.parse(resultsRaw).Analyses.map((a) => ({
+          code: a.Code,
+          label: a.Libelle,
+          value: a.Valeur,
+          unit: a.Unite,
+          reference: a.Reference,
+          abnormal: a.Anormal,
+        }))
+      }
+    } catch {
+      analyses = []
+    }
 
     return {
-      noReq: l.NoReq,
-      date: l.DateService?.slice(0, 10) ?? '',
-      description: l.Description,
+      id: l.id,
+      noReq: l.id,
+      date: l.datePrelevement?.slice(0, 10) ?? '',
+      description: undefined,
       prescriber:
-        l.PrenomPrescripteur && l.NomPrescripteur ? `${l.PrenomPrescripteur} ${l.NomPrescripteur}` : undefined,
+        l.prenomPrescripteur && l.nomPrescripteur ? `${l.prenomPrescripteur} ${l.nomPrescripteur}` : undefined,
       reports: reports.map((r) => ({ id: r.IdRapport, date: r.DateRapport.slice(0, 10), status: r.Statut })),
-      analyses: results.map((a) => ({
-        code: a.Code,
-        label: a.Libelle,
-        value: a.Valeur,
-        unit: a.Unite,
-        reference: a.Reference,
-        abnormal: a.Anormal,
-      })),
+      analyses,
     }
   })
 }

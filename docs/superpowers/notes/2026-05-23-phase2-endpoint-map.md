@@ -269,3 +269,42 @@ The endpoint map is complete enough to draft the Phase 3 plan. Phase 3 needs:
 6. **Output layer** — deterministic PDF rename (`<type>/EXAM-DESCRIPTION_YYYY-MM-DD.pdf`), `manifest.json` with checksums + counts.
 
 Vaccines stays out of scope. If Yann wants vaccine data later, that's a separate Phase 4 against the Carnet de vaccination portal.
+
+---
+
+## Update — Phase 3 live-run discoveries
+
+These shapes were guessed at Phase 3 plan time (since Phase 2 only captured URLs/metadata, not full bodies). Recording the real shapes here so future plan iterations don't re-guess.
+
+### Authentication: Bearer JWT (not cookies alone)
+
+The SPA is **Angular** + **oidc-client-js**. After ClicSEQUR login the SPA holds a short-lived (~1h) Bearer JWT in `sessionStorage` under:
+
+```
+oidc.user:https://fedapp.ramq.gouv.qc.ca/adfs:http://ais-citoyen-prod
+```
+
+The value is a JSON object containing `access_token`. An Angular `HttpInterceptor` attaches that JWT to every `/api/1/*` request. **Plain `fetch()`, `executeJavaScript("fetch(...)")` from devtools console, and `session.fetch()` ALL bypass the interceptor → 403 even with valid partition cookies.** Our `auth.ts` captures the Bearer via `session.webRequest.onBeforeSendHeaders` for refresh + seeds from sessionStorage for immediate bootstrap.
+
+### Per-endpoint date range caps (server 500s on wider)
+
+- Imaging `/ExamensImagerie?Dates` — ≤ 6 years
+- Medications `/Medications?Dates` — 2-year default (wider may work, unverified)
+- Medical services `/ServicesMedicauxAssures?Dates` — 7 years
+- Labs / Appointments — server expects per-year queries; sweep yearly
+
+### Real response shapes (camelCase vs PascalCase mix)
+
+- **Connected user** (PascalCase): `IdCitoyen`, `Nom`, `Prenom`, `Sexe`, `DateNaissance`, `IndAdmissibiliteCarnetSante`, `EstAgeEntre14Et17Ans`, `PersonnesACharge`. Per-citizen `/api/1/Citoyens/{id}` does NOT exist; only sub-resources do.
+- **Medications** (PascalCase): `IdOrdonnance`/`Id`, `Date`, `Duree`, `NomPrescripteur`, `PrenomPrescripteur`, `Pharmacie`, `MedicamentPrescrit{DIN,Nom,LibelleClasse,Posologies[{Description}]}`, `DernierService{Id,Date,Duree,NomPharmacie,Medicaments}`, `NombreDelivrancesAutorisees`, `NombreDelivrancesRestantes` (**both can be `null`** for compounded meds).
+- **Medical services** (PascalCase): NO `Id` field. Fields: `NomProfessionnel`, `PrenomProfessionnel`, `MontantPayeRAMQ`, `DateService`, `DescriptionService`/`DescriptionServiceAnglais`, `PrecisionService`/`PrecisionServiceAnglais`, `LieuPhysique{Nom,Adresse,CodePostal}`, `LieuGeographique`. Synthesize id from `${date}-${idx}`.
+- **Imaging list** (PascalCase): `NumeroExamen`, `DateExamen`, `DescriptionExamen`, `NomPrescripteur`, `PrenomPrescripteur`, `RapportsImagerie` (always null in list), `DateDisponibiliteRapport`.
+- **Imaging DetailRapport** (PascalCase): **direct array** at root, no wrapping object. Each item: `{IdRapport, DateRapport, Statut, NumeroExamen (null), DateDisponibiliteRapport}`.
+- **Imaging PDF URL**: `…/ExamenImagerie/{examId}/DetailRapport/{reportId}/Rapport` returns `application/pdf`. The reportId follows the empirical pattern `1061642060${examId}0` (confirmed across 3+ exams).
+- **Labs list** (camelCase): `id` (opaque, ready for use in URLs — no client-side encoding needed), `trackingId` (maps to `?Tracking=`), `datePrelevement`, `dateEnvoiPrescripteur`, `statutRapport`, `nomPrescripteur`, `prenomPrescripteur`, `dateDisponibiliteResultatAnalyse`, `indResultatCovid`.
+- **Labs /Rapports** returns the PDF **inline as base64** inside the JSON response (not at a separate URL). Scan response strings for `%PDF` magic bytes (base64 `JVBERi`) to extract.
+
+### Still unknown
+
+- **Carte / Coordonnees / Courriel / TelephoneMobile / SituationMedecinFamille** response shapes — Phase 2 didn't read them; Phase 3 schemas are lenient passthrough but the normalize field-mapping may be wrong. Inspect on first user with a populated card / contact / family doctor.
+- **AccesRenseignementsSanteFusionnes** — was captured once but the body wasn't read for shape inference.

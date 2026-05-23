@@ -1,11 +1,18 @@
 [
   {
-    "Id": "SVC0001",
-    "DateService": "2026-04-10T00:00:00-04:00",
-    "Description": "Consultation generale",
-    "Etablissement": "Clinique Example",
-    "Specialite": "Omnipraticien",
-    "Montant": 125.5,
-    "Statut": "Paye"
+    "NomProfessionnel": "LAVERTU",
+    "PrenomProfessionnel": "CAROLINE",
+    "MontantPayeRAMQ": 46.6,
+    "DateService": "2019-08-05T00:00:00",
+    "DescriptionService": "Visite, examen ou consultation",
+    "DescriptionServiceAnglais": "Visit, examination or consultation",
+    "PrecisionService": "Médecine familiale",
+    "PrecisionServiceAnglais": "Family medicine activities aimed at prevention",
+    "LieuGeographique": null,
+    "LieuPhysique": {
+      "Nom": "LA CITE MEDICALE (SAINTE-FOY)",
+      "Adresse": "295-2600 BOUL LAURIER, QUEBEC, QC",
+      "CodePostal": "G1V4T3"
+    }
   }
 ]
