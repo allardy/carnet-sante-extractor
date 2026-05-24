@@ -270,3 +270,42 @@ export type CleanLab = {
   reports: { id: string; date: string; status?: string }[]
   analyses: { code: string; label: string; value: string; unit?: string; reference?: string; abnormal?: boolean }[]
 }
+
+// Access journal (AccesRenseignementsSanteFusionnes): one entry per time a health-care worker
+// (intervenant) consulted the citizen's fused record. camelCase like labs. Lenient — only the
+// fields we surface are described; everything else passes through untouched.
+// Every field nullable: real entries carry e.g. `roleAnglais: null`, so a strict string would
+// reject the whole list and drop the user back to a raw-JSON fallback with no markdown.
+export const accessIntervenantSchema = z
+  .object({
+    nom: z.string().nullable().optional(),
+    prenom: z.string().nullable().optional(),
+    role: z.string().nullable().optional(),
+    roleAnglais: z.string().nullable().optional(),
+    id: z.string().nullable().optional(), // e.g. 'coli7465@PROD.PSC.SECURSANTE'
+  })
+  .passthrough()
+
+export const accessEntrySchema = z
+  .object({
+    idCitoyen: z.string().nullable().optional(),
+    periodeAcces: z
+      .object({ dateDebut: isoDate.nullable().optional(), dateFin: isoDate.nullable().optional() })
+      .nullable()
+      .optional(),
+    domaines: z.array(z.string()).nullable().optional(),
+    intervenant: accessIntervenantSchema.nullable().optional(),
+  })
+  .passthrough()
+
+export const accessListSchema = z.array(accessEntrySchema)
+
+export type CleanAccess = {
+  date: string // 'YYYY-MM-DD' from periodeAcces.dateDebut ('' when absent)
+  time: string // 'HH:MM:SS' from periodeAcces.dateDebut ('' when absent)
+  person: string // 'Prenom NOM'
+  role: string
+  roleEn?: string
+  providerId: string // intervenant.id
+  domains: string[] // raw domain codes: Imagerie | Medicament | Prelevement
+}

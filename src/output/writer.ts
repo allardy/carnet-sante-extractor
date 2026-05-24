@@ -3,10 +3,12 @@ import { resolve } from 'node:path'
 
 import { type DocumentDescriptor } from '../collectors/types.js'
 import { type Logger } from '../main/logger.js'
+import { normalizeAccess } from '../normalize/access.js'
 import { normalizeAppointments } from '../normalize/appointments.js'
 import { normalizeImaging } from '../normalize/imaging.js'
 import { normalizeLabs } from '../normalize/labs.js'
 import {
+  accessMarkdown,
   appointmentsMarkdown,
   imagingMarkdown,
   labsMarkdown,
@@ -30,6 +32,7 @@ export type OrchestratorOutput = {
   medicalServices: unknown
   imaging: unknown
   labs: unknown
+  access: unknown
   documents: { descriptor: DocumentDescriptor; localPath: string }[]
 }
 
@@ -204,6 +207,14 @@ export const writeOutput = async (raw: OrchestratorOutput, outputDir: string, lo
       return normalizeLabs({ list: l?.list ?? [], rapports: l?.rapports ?? {}, results: l?.results ?? {} })
     },
     (c, docs) => labsMarkdown(c, docs),
+    (c) => (c as unknown[]).length,
+  )
+  await writePair(
+    'access',
+    'access',
+    raw.access,
+    () => normalizeAccess(raw.access),
+    (c) => accessMarkdown(c),
     (c) => (c as unknown[]).length,
   )
 

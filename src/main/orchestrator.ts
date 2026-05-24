@@ -16,6 +16,9 @@ export type ProgressCallback = (event: {
   currentDomain?: string
   domainsDone: number
   domainsTotal: number
+  itemsDone?: number
+  itemsTotal?: number
+  itemLabel?: string
   error?: string
 }) => void
 
@@ -58,7 +61,19 @@ export const runExtraction = async (
       const t0 = Date.now()
 
       try {
-        const result = await c.collect(ctx)
+        const result = await c.collect({
+          ...ctx,
+          onItem: (done, itemsTotal, itemLabel) =>
+            onProgress({
+              phase: 'running',
+              currentDomain: c.domain,
+              domainsDone: i,
+              domainsTotal: total,
+              itemsDone: done,
+              itemsTotal,
+              itemLabel,
+            }),
+        })
         const durationMs = Date.now() - t0
 
         collected[result.domain] = result.raw
@@ -71,7 +86,7 @@ export const runExtraction = async (
           durationMs,
         })
 
-        for (const d of result.documents) {
+        for (const [di, d] of result.documents.entries()) {
           const dt0 = Date.now()
 
           try {
@@ -117,6 +132,16 @@ export const runExtraction = async (
               error: (err as Error).message,
             })
           }
+
+          onProgress({
+            phase: 'running',
+            currentDomain: result.domain,
+            domainsDone: i,
+            domainsTotal: total,
+            itemsDone: di + 1,
+            itemsTotal: result.documents.length,
+            itemLabel: 'PDF',
+          })
         }
 
         domainsDone += 1
@@ -148,6 +173,7 @@ export const runExtraction = async (
         medicalServices: collected['medical-services'],
         imaging: collected.imaging,
         labs: collected.labs,
+        access: collected.access,
         documents: localDocs,
       },
       outputDir,

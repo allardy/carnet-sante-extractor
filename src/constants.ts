@@ -21,6 +21,10 @@ export const CARNET_API_BASE = `${CARNET_ORIGIN}/api/1`
 // host: the sample list, per-sample reports (PDF inlined as base64), and analysis values.
 export const RAMQ_GATEWAY_API_BASE = 'https://ais-passerelle-autorisation-api.ramq.gouv.qc.ca/api/1'
 
+// RAMQ "accès aux renseignements de santé" gateway. Hosts the fused-record ACCESS JOURNAL —
+// who (which intervenant) consulted the citizen's record, when, and which domains they touched.
+export const RAMQ_FUSED_RECORDS_API_BASE = 'https://ais-acces-renseignements-sante-api.ramq.gouv.qc.ca/api/1'
+
 // webRequest filter for the Bearer-capture interceptor — every host that carries the SPA's JWT.
 export const AUTH_CAPTURE_URL_PATTERNS = ['https://*.carnetsante.gouv.qc.ca/*', 'https://*.ramq.gouv.qc.ca/*']
 

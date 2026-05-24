@@ -26,6 +26,11 @@ export type ExtractProgressPayload = {
   currentDomain?: string
   domainsDone: number
   domainsTotal: number
+  // Sub-progress within the current domain (e.g. exams fetched, PDFs downloaded). Lets the bar
+  // advance and the label read "Imaging — exam 12/45" instead of sitting frozen at the domain step.
+  itemsDone?: number
+  itemsTotal?: number
+  itemLabel?: string
   rawBytes: number
   downloads: number
   error?: string

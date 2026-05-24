@@ -1,3 +1,4 @@
+import { accessCollector } from './access.js'
 import { appointmentsCollector } from './appointments.js'
 import { imagingCollector } from './imaging.js'
 import { labsCollector } from './labs.js'
@@ -13,4 +14,5 @@ export const collectors: Collector[] = [
   medicalServicesCollector,
   imagingCollector,
   labsCollector,
+  accessCollector,
 ]
