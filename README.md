@@ -1,4 +1,4 @@
-# carnet-sante-extract
+# carnet-sante-extractor
 
 Desktop app that pulls **everything** out of [Carnet Santé Québec](https://carnetsante.gouv.qc.ca) — the Quebec government health portal that has no API and no bulk download. Open the app, log in by hand (MFA and all), and it takes over the live session: it captures the structured data the site renders + downloads every PDF, ready to be normalized into clean **Markdown + JSON** for an LLM later.
 
@@ -16,14 +16,14 @@ pnpm dev        # launches the app — log in, then either:
 ## Build the installer
 
 ```bash
-pnpm package    # → release/Carnet Sante Extract Setup <version>.exe (Windows, NSIS)
+pnpm package    # → release/Carnet Sante Extractor Setup <version>.exe (Windows, NSIS)
 ```
 
 The build is unsigned, so Windows SmartScreen warns on first launch — **More info → Run anyway**.
 
 ## Output
 
-Written to `~/carnet-sante-extract/` — every run lives in its own ISO-timestamped subfolder so prior runs are preserved:
+Written to `~/carnet-sante-extractor/` — every run lives in its own ISO-timestamped subfolder so prior runs are preserved:
 
 ```
 raw/<ISO-timestamp>/   # one folder per capture/extract run — full server payloads

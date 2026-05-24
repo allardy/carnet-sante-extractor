@@ -1,5 +1,5 @@
 {
-  "name": "carnet-sante-extract",
+  "name": "carnet-sante-extractor",
   "version": "0.2.0",
   "private": true,
   "description": "Desktop app that logs you into Carnet Santé Québec, then captures your health records (PDFs + structured data) into AI-ready Markdown/JSON.",

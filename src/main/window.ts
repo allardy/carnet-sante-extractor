@@ -14,7 +14,7 @@ export const createWindow = (entry: RendererEntry, preloadPath: string): AppWind
   const window = new BaseWindow({
     width: config.windowWidth,
     height: config.windowHeight,
-    title: 'Carnet Santé Extract',
+    title: 'Carnet Santé Extractor',
   })
 
   const toolbar = new WebContentsView({ webPreferences: { preload: preloadPath, sandbox: false } })

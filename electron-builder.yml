@@ -1,5 +1,5 @@
-appId: dev.icitte.carnet-sante-extract
-productName: Carnet Sante Extract
+appId: dev.icitte.carnet-sante-extractor
+productName: Carnet Sante Extractor
 directories:
   output: release
 files:

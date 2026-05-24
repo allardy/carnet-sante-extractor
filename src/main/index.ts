@@ -182,7 +182,7 @@ void app.whenReady().then(() => {
 
   const preloadPath = join(import.meta.dirname, '../preload/index.mjs')
 
-  const base = join(app.getPath('home'), 'carnet-sante-extract')
+  const base = join(app.getPath('home'), 'carnet-sante-extractor')
 
   config.outputDir = join(base, 'output')
   config.rawDir = join(base, 'raw')
