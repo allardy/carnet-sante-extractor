@@ -1,4 +1,5 @@
 import {
+  type CleanAccess,
   type CleanAppointment,
   type CleanImagingExam,
   type CleanLab,
@@ -337,6 +338,85 @@ export const labsMarkdown = (labs: CleanLab[], docs: { date: string; outputPath:
   }
 
   lines.push('---', '', '[← Summary](../summary.md) · [Raw JSON](../data/labs.json)')
+
+  return `${lines.join('\n')}\n`
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Folder access (who consulted the record)
+// ──────────────────────────────────────────────────────────────────────────────
+
+const ACCESS_DOMAIN_LABELS: Record<string, string> = {
+  Imagerie: 'Imaging',
+  Medicament: 'Medications',
+  Prelevement: 'Labs',
+}
+
+const accessDomainLabel = (d: string): string => ACCESS_DOMAIN_LABELS[d] ?? d
+
+export const accessMarkdown = (access: CleanAccess[]): string => {
+  if (access.length === 0) {
+    return '# Folder access\n\n_None._\n'
+  }
+
+  // Headline: one row per distinct person (keyed by provider id, falling back to display name),
+  // most-recently-seen first — the direct answer to "who looked at my record".
+  type Agg = { person: string; role: string; count: number; first: string; last: string }
+  const byPerson = new Map<string, Agg>()
+
+  for (const a of access) {
+    const key = a.providerId || a.person
+    const existing = byPerson.get(key)
+
+    if (existing) {
+      existing.count += 1
+
+      if (a.date !== '' && (existing.first === '' || a.date < existing.first)) {
+        existing.first = a.date
+      }
+
+      if (a.date > existing.last) {
+        existing.last = a.date
+      }
+    } else {
+      byPerson.set(key, { person: a.person, role: a.role, count: 1, first: a.date, last: a.date })
+    }
+  }
+
+  const people = [...byPerson.values()].sort((x, y) => y.last.localeCompare(x.last))
+
+  const lines = [
+    '# Folder access',
+    '',
+    `_${access.length} access event${access.length === 1 ? '' : 's'} by ${people.length} ${people.length === 1 ? 'person' : 'people'} — full data in [\`data/access.json\`](../data/access.json)_`,
+    '',
+    '## Who accessed your record',
+    '',
+    '| Person | Role | Accesses | First | Last |',
+    '| --- | --- | --- | --- | --- |',
+  ]
+
+  for (const p of people) {
+    lines.push(`| ${p.person} | ${p.role} | ${p.count} | ${p.first} | ${p.last} |`)
+  }
+
+  lines.push('', '## Access log', '')
+
+  for (const { year, items } of groupByYear(access)) {
+    lines.push(`### ${year}`, '')
+
+    for (const a of items) {
+      const when = a.time ? `${a.date} ${a.time}` : a.date
+      const doms = a.domains.map(accessDomainLabel).join(', ')
+      const tail = doms ? ` — ${doms}` : ''
+
+      lines.push(`- **${when}** — ${a.person} (${a.role})${tail}`)
+    }
+
+    lines.push('')
+  }
+
+  lines.push('---', '', '[← Summary](../summary.md) · [Raw JSON](../data/access.json)')
 
   return `${lines.join('\n')}\n`
 }

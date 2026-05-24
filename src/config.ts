@@ -2,7 +2,15 @@ import { resolve } from 'node:path'
 
 import { CARNET_PORTAL_URL } from './constants.js'
 
-export type Domain = 'profile' | 'labs' | 'medications' | 'imaging' | 'appointments' | 'medical-services' | 'documents'
+export type Domain =
+  | 'profile'
+  | 'labs'
+  | 'medications'
+  | 'imaging'
+  | 'appointments'
+  | 'medical-services'
+  | 'access'
+  | 'documents'
 
 export type Config = {
   carnetUrl: string
@@ -30,7 +38,7 @@ export const config: Config = {
   windowWidth: 1280,
   windowHeight: 900,
   toolbarHeight: 56,
-  domains: ['profile', 'labs', 'medications', 'imaging', 'appointments', 'medical-services', 'documents'],
+  domains: ['profile', 'labs', 'medications', 'imaging', 'appointments', 'medical-services', 'access', 'documents'],
   requestDelayMs: 800,
   downloadConcurrency: 3,
   downloadRetries: 2,

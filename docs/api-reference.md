@@ -96,11 +96,26 @@ encoding needed).
   — covered services (visits / billing-side records).
 - `GET /api/1/Citoyens/{citizenId}/ServicesMedicauxAssures/DernierService` — most-recent service.
 
-### Fused health records (AccesRenseignementsSante)
+### Folder access journal (AccesRenseignementsSante)
 
 - `GET /api/1/AccesRenseignementsSanteFusionnes/{citizenId}?IdCitoyenConnecte={citizenId}&DateDebut={YYYY-MM-DD}&DateFin={YYYY-MM-DD}`
-  — hosted on `ais-acces-renseignements-sante-api.ramq.gouv.qc.ca`. An umbrella "dossier" endpoint
-  that may aggregate multiple domains in one payload.
+  — hosted on `ais-acces-renseignements-sante-api.ramq.gouv.qc.ca`. Despite the "renseignements
+  fusionnés" name, the payload is **not** the health data — it's the **access journal**: one entry
+  per time a health-care worker (`intervenant`) consulted the citizen's fused record, with their
+  name + role, the access timestamp window, and which domains they touched. Powers the portal's
+  "qui a consulté mon dossier" page. Accepts a wide window in one shot (≥7 years observed; no narrow
+  per-year cap like Prelevements). camelCase, like labs.
+
+### Delegated-access mandates — `www.carnetsante.gouv.qc.ca`
+
+Who may act on the citizen's behalf (distinct from the access journal above):
+
+- `GET /api/1/Citoyens/MandatsCitoyenMandataire` — mandates where the connected citizen is the
+  **mandataire** (acts for someone else).
+- `GET /api/1/Citoyens/MandatsCitoyenMandant` — mandates where the connected citizen is the
+  **mandant** (someone else acts for them).
+
+Both return a flat array (empty `[]` when there are no mandates).
 
 ## Date-range caps
 
@@ -187,6 +202,17 @@ Field names + types only. The API mixes PascalCase (most endpoints) and camelCas
   nomPrescripteur, prenomPrescripteur: string,
   dateDisponibiliteResultatAnalyse: null | ISO,
   indResultatCovid: bool }
+```
+
+**`AccesRenseignementsSanteFusionnes`** (camelCase) — array of access-journal entries:
+
+```
+{ idCitoyen: string,
+  periodeAcces: { dateDebut: ISO, dateFin: ISO },   // no timezone; microsecond precision
+  domaines: string[],                                // 'Imagerie' | 'Medicament' | 'Prelevement'
+  intervenant: { nom, prenom: string,
+                 role, roleAnglais: string,          // e.g. 'Médecin' / 'Physician'
+                 id: string } }                       // e.g. 'coli7465@PROD.PSC.SECURSANTE'
 ```
 
 ## Conventions

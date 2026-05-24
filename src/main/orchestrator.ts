@@ -173,6 +173,7 @@ export const runExtraction = async (
         medicalServices: collected['medical-services'],
         imaging: collected.imaging,
         labs: collected.labs,
+        access: collected.access,
         documents: localDocs,
       },
       outputDir,

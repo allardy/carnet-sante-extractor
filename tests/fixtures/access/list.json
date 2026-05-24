@@ -1,0 +1,38 @@
+[
+  {
+    "idCitoyen": "99999",
+    "periodeAcces": { "dateDebut": "2099-03-10T09:15:00.000000", "dateFin": "2099-03-10T09:15:03.000000" },
+    "domaines": ["Medicament"],
+    "intervenant": {
+      "nom": "TEST-NOM",
+      "prenom": "Alpha",
+      "role": "Médecin",
+      "roleAnglais": "Physician",
+      "id": "alte0001@TEST.EXAMPLE"
+    }
+  },
+  {
+    "idCitoyen": "99999",
+    "periodeAcces": { "dateDebut": "2099-07-22T14:00:00.000000", "dateFin": "2099-07-22T14:00:00.000000" },
+    "domaines": ["Medicament", "Prelevement", "Imagerie"],
+    "intervenant": {
+      "nom": "TEST-NOM",
+      "prenom": "Alpha",
+      "role": "Médecin",
+      "roleAnglais": "Physician",
+      "id": "alte0001@TEST.EXAMPLE"
+    }
+  },
+  {
+    "idCitoyen": "99999",
+    "periodeAcces": { "dateDebut": "2098-11-05T11:30:00.000000", "dateFin": "2098-11-05T11:30:00.000000" },
+    "domaines": ["Prelevement"],
+    "intervenant": {
+      "nom": "EXEMPLE",
+      "prenom": "Beta",
+      "role": "Pharmacien",
+      "roleAnglais": "Pharmacist",
+      "id": "beex0002@TEST.EXAMPLE"
+    }
+  }
+]
