@@ -1,5 +1,7 @@
 import { resolve } from 'node:path'
 
+import { CARNET_PORTAL_URL } from './constants.js'
+
 export type Domain = 'profile' | 'labs' | 'medications' | 'imaging' | 'appointments' | 'medical-services' | 'documents'
 
 export type Config = {
@@ -21,7 +23,7 @@ const root = process.cwd()
 // outputDir/rawDir default to cwd for dev (`pnpm dev`); main/index.ts overrides them to a
 // user-visible Documents folder once the Electron app path is available.
 export const config: Config = {
-  carnetUrl: 'https://carnetsante.gouv.qc.ca',
+  carnetUrl: CARNET_PORTAL_URL,
   outputDir: resolve(root, 'output'),
   rawDir: resolve(root, 'raw'),
   partitionName: 'persist:carnet',

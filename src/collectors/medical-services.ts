@@ -1,6 +1,6 @@
-import { type Collector, type DomainResult } from './types.js'
+import { CARNET_API_BASE as BASE } from '../constants.js'
 
-const BASE = 'https://www.carnetsante.gouv.qc.ca/api/1'
+import { type Collector, type DomainResult } from './types.js'
 
 export const medicalServicesCollector: Collector = {
   domain: 'medical-services',

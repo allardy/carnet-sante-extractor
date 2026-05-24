@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 
 import { collectors } from '../collectors/index.js'
 import { config } from '../config.js'
+import { ACCEPT_LANGUAGE, BROWSER_USER_AGENT, CARNET_API_BASE } from '../constants.js'
 import { IPC, type ExtractProgressPayload, type ProgressPayload } from '../shared/ipc.js'
 
 import { authHeaders, installAuthCapture, seedAuthFromSessionStorage } from './auth.js'
@@ -154,7 +155,7 @@ const wireIpc = (): void => {
         runOutputDir,
         runRawDir,
         async () => {
-          const url = 'https://www.carnetsante.gouv.qc.ca/api/1/Citoyens'
+          const url = `${CARNET_API_BASE}/Citoyens`
           const r = await sess.fetch(url, { headers: authHeaders(url) })
 
           if (!r.ok) {
@@ -198,10 +199,7 @@ void app.whenReady().then(() => {
   // request on the partition (the embedded WebView and any session.fetch from the main process).
   const partitionSession = session.fromPartition(config.partitionName)
 
-  partitionSession.setUserAgent(
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-    'fr-CA,fr;q=0.9,en;q=0.8',
-  )
+  partitionSession.setUserAgent(BROWSER_USER_AGENT, ACCEPT_LANGUAGE)
 
   // Intercept the partition's outgoing requests to capture the SPA's Bearer JWT (Angular
   // attaches it via HttpInterceptor; we have no other way to read it). Captured token is

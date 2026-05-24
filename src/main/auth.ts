@@ -1,5 +1,7 @@
 import { type Session, type WebContents } from 'electron'
 
+import { ACCEPT_LANGUAGE, AUTH_CAPTURE_URL_PATTERNS } from '../constants.js'
+
 // The Carnet Santé SPA (Angular) attaches an `Authorization: Bearer <JWT>` header to every
 // /api/1/* request via an HttpInterceptor. The JWT is issued by RAMQ's ADFS after the
 // ClicSEQUR login and lives in-memory inside the SPA — not in localStorage/sessionStorage
@@ -16,7 +18,7 @@ let capturedAuth: string | null = null
 export const installAuthCapture = (session: Session): void => {
   session.webRequest.onBeforeSendHeaders(
     {
-      urls: ['https://*.carnetsante.gouv.qc.ca/*', 'https://*.ramq.gouv.qc.ca/*'],
+      urls: [...AUTH_CAPTURE_URL_PATTERNS],
     },
     (details, callback) => {
       const headers = details.requestHeaders
@@ -69,7 +71,7 @@ export const authHeaders = (referer: string): Record<string, string> => {
   return {
     Authorization: auth,
     Accept: 'application/json, text/plain, */*',
-    'Accept-Language': 'fr-CA,fr;q=0.9,en;q=0.8',
+    'Accept-Language': ACCEPT_LANGUAGE,
     Referer: referer,
   }
 }

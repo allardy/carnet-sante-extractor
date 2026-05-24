@@ -1,6 +1,6 @@
-import { type Collector, type DocumentDescriptor, type DomainResult } from './types.js'
+import { CARNET_API_BASE as BASE } from '../constants.js'
 
-const BASE = 'https://www.carnetsante.gouv.qc.ca/api/1'
+import { type Collector, type DocumentDescriptor, type DomainResult } from './types.js'
 
 // The gov API mixes PascalCase (older endpoints) and camelCase (newer endpoints). Imaging's
 // DetailRapport response uses camelCase in practice; the Phase 3 best-guess assumed PascalCase

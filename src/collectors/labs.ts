@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto'
 
+import { RAMQ_GATEWAY_API_BASE as BASE } from '../constants.js'
 import { extractBase64Pdfs } from '../util/pdf-extract.js'
 
 import { type Collector, type DocumentDescriptor, type DomainResult } from './types.js'
-
-const BASE = 'https://ais-passerelle-autorisation-api.ramq.gouv.qc.ca/api/1'
 
 // Matches the SPA's full sweep. The Prelevements endpoint expects per-year queries (it returns
 // nothing for the current rolling year if the citizen's labs are older — see the phase2 endpoint

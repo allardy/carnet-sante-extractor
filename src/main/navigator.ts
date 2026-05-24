@@ -1,6 +1,7 @@
 import { type Session, type WebContents } from 'electron'
 
 import { type Navigator } from '../collectors/types.js'
+import { CARNET_HOME_URL, CARNET_ORIGIN } from '../constants.js'
 
 import { authHeaders } from './auth.js'
 import { type Logger } from './logger.js'
@@ -11,13 +12,13 @@ const refererFor = (url: string): string => {
   try {
     return new URL(url).origin + '/accueil'
   } catch {
-    return 'https://www.carnetsante.gouv.qc.ca/accueil'
+    return CARNET_HOME_URL
   }
 }
 
 export const createNavigator = (webContents: WebContents, session: Session, logger?: Logger): Navigator => ({
   goto: async (pathOrUrl) => {
-    const url = pathOrUrl.startsWith('http') ? pathOrUrl : `https://www.carnetsante.gouv.qc.ca${pathOrUrl}`
+    const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${CARNET_ORIGIN}${pathOrUrl}`
 
     logger?.log({ phase: 'navigator', status: 'start', message: 'goto', url })
     await webContents.loadURL(url)
