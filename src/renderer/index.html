@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="./styles.css" />
+    <title>Carnet Santé Extractor</title>
+  </head>
+  <body>
+    <header id="bar">
+      <button id="start" class="primary">Extract my health record</button>
+      <div id="progress" class="progress" hidden>
+        <div id="progress-fill"></div>
+      </div>
+      <span id="step">Log in to Carnet Santé below, then click Extract.</span>
+      <span id="spacer"></span>
+      <button id="open" class="ghost" title="Open the output folder">Output folder</button>
+      <button id="debug" class="ghost icon" title="Debugging tools" aria-label="Debugging tools">⚙</button>
+    </header>
+    <script type="module" src="./app.ts"></script>
+  </body>
+</html>

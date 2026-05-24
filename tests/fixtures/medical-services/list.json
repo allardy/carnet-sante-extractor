@@ -1,0 +1,18 @@
+[
+  {
+    "NomProfessionnel": "TREMBLAY",
+    "PrenomProfessionnel": "MARIE",
+    "MontantPayeRAMQ": 46.6,
+    "DateService": "2099-01-15T00:00:00",
+    "DescriptionService": "Visite, examen ou consultation",
+    "DescriptionServiceAnglais": "Visit, examination or consultation",
+    "PrecisionService": "Médecine familiale",
+    "PrecisionServiceAnglais": "Family medicine activities aimed at prevention",
+    "LieuGeographique": null,
+    "LieuPhysique": {
+      "Nom": "CLINIQUE EXEMPLE (TEST)",
+      "Adresse": "123 RUE EXEMPLE, QUEBEC, QC",
+      "CodePostal": "H0H0H0"
+    }
+  }
+]

@@ -1,0 +1,72 @@
+[
+  {
+    "Type": "OrdonnanceAvecService",
+    "Id": "TEST0001",
+    "IdOrdonnance": "TEST0001",
+    "Date": "2026-04-01T00:00:00-04:00",
+    "Duree": 365,
+    "NomPrescripteur": "SMITH",
+    "PrenomPrescripteur": "JOHN",
+    "Pharmacie": "TEST PHARMACY",
+    "NombreDelivrancesAutorisees": 12,
+    "NombreDelivrancesRestantes": 8,
+    "MedicamentPrescrit": {
+      "DIN": "00000001",
+      "Nom": "PLACEBO 10MG TABLET",
+      "NomAnglais": "PLACEBO 10MG TABLET",
+      "LibelleClasse": "Test class",
+      "LibelleClasseAnglais": "Test class",
+      "Posologies": [{ "DIN": null, "Nom": null, "NomAnglais": null, "Description": "Take 1 tablet once daily" }]
+    },
+    "DernierService": {
+      "Id": "SVC0001",
+      "Date": "2026-05-01T00:00:00-04:00",
+      "Duree": 30,
+      "NomPharmacie": "TEST PHARMACY",
+      "Medicaments": {
+        "DIN": "00000001",
+        "Nom": "PLACEBO 10MG TABLET",
+        "NomAnglais": "PLACEBO 10MG TABLET",
+        "LibelleClasse": "Test class",
+        "LibelleClasseAnglais": "Test class",
+        "Posologies": [{ "DIN": null, "Nom": null, "NomAnglais": null, "Description": "Take 1 tablet once daily" }]
+      }
+    },
+    "Services": null
+  },
+  {
+    "Type": "OrdonnanceAvecService",
+    "Id": "TEST0002",
+    "IdOrdonnance": "TEST0002",
+    "Date": "2025-12-01T00:00:00-05:00",
+    "Duree": 90,
+    "NomPrescripteur": "DOE",
+    "PrenomPrescripteur": "JANE",
+    "Pharmacie": "ANOTHER PHARMACY",
+    "NombreDelivrancesAutorisees": 3,
+    "NombreDelivrancesRestantes": 0,
+    "MedicamentPrescrit": {
+      "DIN": "00000002",
+      "Nom": "ANOTHER 5MG CAPSULE",
+      "NomAnglais": "ANOTHER 5MG CAPSULE",
+      "LibelleClasse": "Test class 2",
+      "LibelleClasseAnglais": "Test class 2",
+      "Posologies": [{ "DIN": null, "Nom": null, "NomAnglais": null, "Description": "Take 1 capsule twice daily" }]
+    },
+    "DernierService": {
+      "Id": "SVC0002",
+      "Date": "2026-02-15T00:00:00-05:00",
+      "Duree": 30,
+      "NomPharmacie": "ANOTHER PHARMACY",
+      "Medicaments": {
+        "DIN": "00000002",
+        "Nom": "ANOTHER 5MG CAPSULE",
+        "NomAnglais": "ANOTHER 5MG CAPSULE",
+        "LibelleClasse": "Test class 2",
+        "LibelleClasseAnglais": "Test class 2",
+        "Posologies": [{ "DIN": null, "Nom": null, "NomAnglais": null, "Description": "Take 1 capsule twice daily" }]
+      }
+    },
+    "Services": null
+  }
+]

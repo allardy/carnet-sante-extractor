@@ -1,0 +1,20 @@
+{
+  "Analyses": [
+    {
+      "Code": "HEMO",
+      "Libelle": "Hémoglobine",
+      "Valeur": "150",
+      "Unite": "g/L",
+      "Reference": "130-170",
+      "Anormal": false
+    },
+    {
+      "Code": "GLUC",
+      "Libelle": "Glycémie",
+      "Valeur": "5.2",
+      "Unite": "mmol/L",
+      "Reference": "3.9-6.1",
+      "Anormal": false
+    }
+  ]
+}

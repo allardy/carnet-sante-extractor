@@ -1,0 +1,175 @@
+import { type Session, type WebContents } from 'electron'
+import { resolve } from 'node:path'
+
+import { collectors } from '../collectors/index.js'
+import { type DocumentDescriptor } from '../collectors/types.js'
+import { type Domain } from '../config.js'
+import { writeOutput } from '../output/writer.js'
+import { ensureDir, writeBuffer, writeJson } from '../util/fs.js'
+
+import { authHeaders } from './auth.js'
+import { createLogger } from './logger.js'
+import { createNavigator } from './navigator.js'
+
+export type ProgressCallback = (event: {
+  phase: 'running' | 'normalizing' | 'writing' | 'done' | 'error'
+  currentDomain?: string
+  domainsDone: number
+  domainsTotal: number
+  error?: string
+}) => void
+
+export const runExtraction = async (
+  webContents: WebContents,
+  session: Session,
+  outputDir: string,
+  rawDir: string,
+  citizenIdFetcher: () => Promise<string>,
+  onProgress: ProgressCallback,
+): Promise<void> => {
+  const logger = await createLogger(rawDir)
+  const total = collectors.length
+  let domainsDone = 0
+  let currentDomain: string | undefined
+
+  logger.log({ phase: 'extract', status: 'start', message: 'run begin', detail: { rawDir, outputDir } })
+
+  try {
+    const nav = createNavigator(webContents, session, logger)
+    const citizenId = await citizenIdFetcher()
+
+    logger.log({ phase: 'extract', status: 'ok', message: `bootstrap citizenId=${citizenId}` })
+
+    const capture = { json: [], binaries: [] }
+    const ctx = { nav, capture, citizenId }
+    const collected: Record<Domain, unknown> = {} as Record<Domain, unknown>
+    const rawDataDir = resolve(rawDir, 'data')
+    const rawDocsDir = resolve(rawDir, 'documents')
+
+    await ensureDir(rawDataDir)
+    await ensureDir(rawDocsDir)
+
+    const localDocs: { descriptor: DocumentDescriptor; localPath: string }[] = []
+
+    for (const [i, c] of collectors.entries()) {
+      currentDomain = c.domain
+      onProgress({ phase: 'running', currentDomain: c.domain, domainsDone: i, domainsTotal: total })
+      logger.log({ phase: 'collect', domain: c.domain, status: 'start', message: 'begin' })
+      const t0 = Date.now()
+
+      try {
+        const result = await c.collect(ctx)
+        const durationMs = Date.now() - t0
+
+        collected[result.domain] = result.raw
+        await writeJson(resolve(rawDataDir, `${result.domain}.json`), result.raw)
+        logger.log({
+          phase: 'collect',
+          domain: result.domain,
+          status: 'ok',
+          message: `wrote data/${result.domain}.json (${result.documents.length} docs flagged)`,
+          durationMs,
+        })
+
+        for (const d of result.documents) {
+          const dt0 = Date.now()
+
+          try {
+            let buf: Buffer
+
+            if (d.inlineData) {
+              buf = Buffer.from(d.inlineData, 'base64')
+            } else {
+              const r = await session.fetch(d.url, { headers: authHeaders(d.url) })
+
+              if (!r.ok) {
+                throw new Error(`HTTP ${r.status}`)
+              }
+
+              buf = Buffer.from(await r.arrayBuffer())
+            }
+
+            const localPath = resolve(rawDocsDir, `${d.id}.pdf`)
+
+            await writeBuffer(localPath, buf)
+            localDocs.push({ descriptor: d, localPath })
+            logger.log({
+              phase: 'pdf',
+              domain: result.domain,
+              status: 'ok',
+              message: d.id,
+              url: d.url || '(inline)',
+              bytes: buf.length,
+              durationMs: Date.now() - dt0,
+            })
+          } catch (err) {
+            await writeJson(resolve(rawDocsDir, `${d.id}.error.json`), {
+              url: d.url,
+              error: (err as Error).message,
+            })
+            logger.log({
+              phase: 'pdf',
+              domain: result.domain,
+              status: 'error',
+              message: d.id,
+              url: d.url || '(inline)',
+              durationMs: Date.now() - dt0,
+              error: (err as Error).message,
+            })
+          }
+        }
+
+        domainsDone += 1
+      } catch (err) {
+        logger.log({
+          phase: 'collect',
+          domain: c.domain,
+          status: 'error',
+          message: 'failed',
+          durationMs: Date.now() - t0,
+          error: (err as Error).message,
+        })
+        throw new Error(`${c.domain}: ${(err as Error).message}`, { cause: err })
+      }
+    }
+
+    currentDomain = undefined
+    onProgress({ phase: 'normalizing', domainsDone, domainsTotal: total })
+    logger.log({ phase: 'normalize', status: 'start', message: 'writeOutput begin' })
+    const wt0 = Date.now()
+
+    // writeOutput is now per-domain-tolerant — see writer.ts. Failures of individual domains
+    // are logged + recorded against the manifest; the run still produces partial output.
+    await writeOutput(
+      {
+        profile: collected.profile,
+        medications: collected.medications,
+        appointments: collected.appointments,
+        medicalServices: collected['medical-services'],
+        imaging: collected.imaging,
+        labs: collected.labs,
+        documents: localDocs,
+      },
+      outputDir,
+      logger,
+    )
+
+    logger.log({ phase: 'normalize', status: 'ok', message: 'writeOutput done', durationMs: Date.now() - wt0 })
+    onProgress({ phase: 'done', domainsDone, domainsTotal: total })
+    logger.log({ phase: 'extract', status: 'ok', message: 'run complete' })
+  } catch (err) {
+    const message = (err as Error).message
+
+    onProgress({
+      phase: 'error',
+      currentDomain,
+      domainsDone,
+      domainsTotal: total,
+      error: message,
+    })
+    logger.log({ phase: 'extract', status: 'error', message: 'run aborted', error: message })
+    throw err
+  } finally {
+    await logger.close()
+  }
+}
