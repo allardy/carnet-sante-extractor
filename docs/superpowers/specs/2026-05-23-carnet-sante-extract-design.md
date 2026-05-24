@@ -150,13 +150,13 @@ output/<ISO-timestamp>/
 
 Discovered during Phase 3 live runs — the server caps date ranges per endpoint and 500s on requests wider than its limit:
 
-| Endpoint | Max range (observed) | Notes |
-|---|---|---|
-| `/Citoyens/{id}/ExamensImagerie?DateDebut=...&DateFin=...` | ~6 years | 500 on 7-year window |
-| `/Citoyens/{id}/Medications?Dates` | ~2 years | The SPA queries this default. Wider may work but unverified. |
-| `/Citoyens/{id}/ServicesMedicauxAssures?Dates` | ~7 years | The SPA's own default. |
-| `/Prelevement/.../Prelevements?Dates` | per-year sweep | The SPA queries one year at a time. Our collector mirrors this; window is configurable (defaulted to 1 year during iteration to avoid spam during debugging). |
-| `/Citoyens/{id}/RendezVous?Dates` | per-year sweep | Same per-year pattern as labs. |
+| Endpoint                                                   | Max range (observed) | Notes                                                                                                                                                         |
+| ---------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/Citoyens/{id}/ExamensImagerie?DateDebut=...&DateFin=...` | ~6 years             | 500 on 7-year window                                                                                                                                          |
+| `/Citoyens/{id}/Medications?Dates`                         | ~2 years             | The SPA queries this default. Wider may work but unverified.                                                                                                  |
+| `/Citoyens/{id}/ServicesMedicauxAssures?Dates`             | ~7 years             | The SPA's own default.                                                                                                                                        |
+| `/Prelevement/.../Prelevements?Dates`                      | per-year sweep       | The SPA queries one year at a time. Our collector mirrors this, sweeping the last 7 years (the current rolling year is often empty — older results live in prior years). |
+| `/Citoyens/{id}/RendezVous?Dates`                          | per-year sweep       | Same per-year pattern as labs.                                                                                                                                |
 
 ## API shape conventions
 
