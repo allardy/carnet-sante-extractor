@@ -25,15 +25,15 @@ The build is unsigned, so Windows SmartScreen warns on first launch — **More i
 
 Each domain becomes a `data/<domain>.json` + a linked `markdown/<domain>.md`; imaging and labs also pull their report PDFs.
 
-| Domain              | What you get                                                                                                  |
-| ------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Profile**         | Name, sex, birth date, health-card number + expiry, address, email, phone, family-doctor status               |
-| **Medications**     | Prescriptions — drug (DIN), posology, prescriber, pharmacy, duration, refills remaining, last-dispensed date   |
-| **Appointments**    | Scheduled appointments — date/time, doctor, clinic, specialty, status                                          |
-| **Medical services** | RAMQ-billed services/visits — date, description, practitioner, facility, amount paid by RAMQ                   |
-| **Imaging**         | Exam list (date, description, prescriber) + every radiology **report PDF**                                      |
-| **Labs**            | Sample list + structured analyses (value / reference / abnormal flag) + every lab **report PDF**               |
-| **Folder access**   | The access journal — **who consulted your record**: each worker's name + role, when, and which domains they saw |
+| Domain               | What you get                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Profile**          | Name, sex, birth date, health-card number + expiry, address, email, phone, family-doctor status                 |
+| **Medications**      | Prescriptions — drug (DIN), posology, prescriber, pharmacy, duration, refills remaining, last-dispensed date    |
+| **Appointments**     | Scheduled appointments — date/time, doctor, clinic, specialty, status                                           |
+| **Medical services** | RAMQ-billed services/visits — date, description, practitioner, facility, amount paid by RAMQ                    |
+| **Imaging**          | Exam list (date, description, prescriber) + every radiology **report PDF**                                      |
+| **Labs**             | Sample list + structured analyses (value / reference / abnormal flag) + every lab **report PDF**                |
+| **Folder access**    | The access journal — **who consulted your record**: each worker's name + role, when, and which domains they saw |
 
 Vaccines (a separate _Carnet de vaccination_ portal) are out of scope. Endpoint surface + response shapes: [`docs/api-reference.md`](docs/api-reference.md).
 

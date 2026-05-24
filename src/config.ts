@@ -14,8 +14,7 @@ export type Domain =
 
 export type Config = {
   carnetUrl: string
-  outputDir: string
-  rawDir: string
+  baseDir: string
   partitionName: string
   windowWidth: number
   windowHeight: number
@@ -28,12 +27,11 @@ export type Config = {
 
 const root = process.cwd()
 
-// outputDir/rawDir default to cwd for dev (`pnpm dev`); main/index.ts overrides them to a
-// user-visible Documents folder once the Electron app path is available.
+// baseDir defaults to cwd/runs for dev (`pnpm dev`); main/index.ts overrides it to
+// ~/carnet-sante-extractor/ once the Electron app path is available.
 export const config: Config = {
   carnetUrl: CARNET_PORTAL_URL,
-  outputDir: resolve(root, 'output'),
-  rawDir: resolve(root, 'raw'),
+  baseDir: resolve(root, 'runs'),
   partitionName: 'persist:carnet',
   windowWidth: 1280,
   windowHeight: 900,

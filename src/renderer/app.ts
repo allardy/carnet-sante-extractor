@@ -1,3 +1,5 @@
+import { strings, type Locale } from '../shared/i18n.js'
+
 const startEl = document.querySelector<HTMLButtonElement>('#start')!
 const openEl = document.querySelector<HTMLButtonElement>('#open')!
 const debugEl = document.querySelector<HTMLButtonElement>('#debug')!
@@ -7,7 +9,29 @@ const fillEl = document.querySelector<HTMLDivElement>('#progress-fill')!
 
 type StepState = '' | 'done' | 'error'
 
-const prettyDomain = (d: string): string => d.replace(/-/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
+let locale: Locale = 'fr'
+let extracting = false
+let idle = true
+let loggedIn = false
+
+const s = (): (typeof strings)[Locale] => strings[locale]
+
+const applyLocale = (): void => {
+  document.documentElement.lang = locale
+  openEl.textContent = s().outputButton
+  debugEl.title = s().debugTitle
+  debugEl.setAttribute('aria-label', s().debugTitle)
+
+  if (!extracting) {
+    startEl.disabled = !loggedIn
+    startEl.textContent = s().extractButton
+  }
+
+  if (idle) {
+    stepEl.textContent = s().initialStep
+    stepEl.className = ''
+  }
+}
 
 const setStep = (text: string, state: StepState = ''): void => {
   stepEl.textContent = text
@@ -20,7 +44,15 @@ const setProgress = (pct: number, state: StepState = ''): void => {
   fillEl.style.width = `${Math.max(0, Math.min(100, pct))}%`
 }
 
-let extracting = false
+applyLocale()
+
+window.api.onSiteAuthState((state) => {
+  loggedIn = state
+
+  if (!extracting) {
+    startEl.disabled = !loggedIn
+  }
+})
 
 startEl.addEventListener('click', () => {
   if (extracting) {
@@ -33,16 +65,19 @@ startEl.addEventListener('click', () => {
 openEl.addEventListener('click', () => void window.api.openOutput())
 debugEl.addEventListener('click', () => void window.api.openDebugMenu())
 
+window.api.onSiteLocale((newLocale) => {
+  locale = newLocale
+  applyLocale()
+})
+
 window.api.onExtractProgress((p) => {
   extracting = p.phase === 'running' || p.phase === 'normalizing' || p.phase === 'writing'
-  startEl.disabled = extracting
-  startEl.textContent = extracting ? 'Extracting…' : 'Extract my health record'
+  startEl.disabled = extracting || !loggedIn
+  startEl.textContent = extracting ? s().extractingButton : s().extractButton
 
   switch (p.phase) {
     case 'running': {
-      // Advance fractionally within the current domain using sub-item progress, so a slow domain
-      // (imaging exams, lab samples, PDF downloads) keeps moving instead of freezing at its step.
-      // The last 10% is reserved for the normalize + write phases.
+      idle = false
       const within = p.itemsTotal && p.itemsTotal > 0 ? (p.itemsDone ?? 0) / p.itemsTotal : 0
       const pct = p.domainsTotal > 0 ? ((p.domainsDone + within) / p.domainsTotal) * 90 : 0
       const sub =
@@ -51,40 +86,39 @@ window.api.onExtractProgress((p) => {
       setProgress(pct)
       setStep(
         p.currentDomain
-          ? `Collecting — ${prettyDomain(p.currentDomain)} (${p.domainsDone}/${p.domainsTotal})${sub}`
-          : 'Starting…',
+          ? s().collectingStep(s().domainName(p.currentDomain), p.domainsDone, p.domainsTotal, sub)
+          : s().startingStep,
       )
       break
     }
     case 'normalizing':
       setProgress(93)
-      setStep('Normalizing records…')
+      setStep(s().normalizingStep)
       break
     case 'writing':
       setProgress(97)
-      setStep('Writing Markdown, JSON & PDFs…')
+      setStep(s().writingStep)
       break
     case 'done':
       setProgress(100, 'done')
-      setStep('Done — your health record is ready. Open the output folder.', 'done')
-      startEl.textContent = 'Extract again'
+      setStep(s().doneStep, 'done')
+      startEl.textContent = s().extractAgainButton
       break
     case 'error':
       setProgress(100, 'error')
-      setStep(`Error: ${p.error ?? 'extraction failed'}`, 'error')
+      setStep(s().errorStep(p.error ?? 'extraction failed'), 'error')
       startEl.title = p.error ?? ''
-      startEl.textContent = 'Try again'
+      startEl.textContent = s().tryAgainButton
       break
   }
 })
 
-// Capture is a debugging flow (started from the ⚙ menu). It shares the step line.
 window.api.onProgress((p) => {
   const tail = p.downloaded === undefined ? '' : `, ${p.downloaded} downloaded`
 
   if (p.phase === 'done') {
-    setStep(`Capture saved — ${p.json} JSON, ${p.binaries} PDF${tail}.`, 'done')
+    setStep(s().captureDoneStep(p.json, p.binaries, tail), 'done')
   } else {
-    setStep(`Capturing — ${p.json} JSON, ${p.binaries} PDF${tail}…`)
+    setStep(s().captureRunningStep(p.json, p.binaries, tail))
   }
 })

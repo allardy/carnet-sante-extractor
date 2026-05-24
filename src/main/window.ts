@@ -10,7 +10,7 @@ export type AppWindow = {
 
 export type RendererEntry = { url?: string; file?: string }
 
-export const createWindow = (entry: RendererEntry, preloadPath: string): AppWindow => {
+export const createWindow = (entry: RendererEntry, preloadPath: string, sitePreloadPath?: string): AppWindow => {
   const window = new BaseWindow({
     width: config.windowWidth,
     height: config.windowHeight,
@@ -18,7 +18,12 @@ export const createWindow = (entry: RendererEntry, preloadPath: string): AppWind
   })
 
   const toolbar = new WebContentsView({ webPreferences: { preload: preloadPath, sandbox: false } })
-  const site = new WebContentsView({ webPreferences: { partition: config.partitionName } })
+  const site = new WebContentsView({
+    webPreferences: {
+      partition: config.partitionName,
+      ...(sitePreloadPath ? { preload: sitePreloadPath, sandbox: false } : {}),
+    },
+  })
 
   window.contentView.addChildView(toolbar)
   window.contentView.addChildView(site)

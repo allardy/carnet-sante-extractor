@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+import { type Locale } from '../shared/i18n.js'
 import { IPC, type ExtractProgressPayload, type ProgressPayload } from '../shared/ipc.js'
 
 const api = {
@@ -19,6 +20,20 @@ const api = {
     ipcRenderer.on(IPC.siteUrl, handler)
 
     return () => ipcRenderer.off(IPC.siteUrl, handler)
+  },
+  onSiteLocale: (cb: (locale: Locale) => void): (() => void) => {
+    const handler = (_event: unknown, locale: Locale): void => cb(locale)
+
+    ipcRenderer.on(IPC.siteLocale, handler)
+
+    return () => ipcRenderer.off(IPC.siteLocale, handler)
+  },
+  onSiteAuthState: (cb: (loggedIn: boolean) => void): (() => void) => {
+    const handler = (_event: unknown, loggedIn: boolean): void => cb(loggedIn)
+
+    ipcRenderer.on(IPC.siteAuthState, handler)
+
+    return () => ipcRenderer.off(IPC.siteAuthState, handler)
   },
   startExtract: (): Promise<void> => ipcRenderer.invoke(IPC.extractStart),
   stopExtract: (): Promise<void> => ipcRenderer.invoke(IPC.extractStop),

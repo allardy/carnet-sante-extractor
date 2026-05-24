@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path'
 import { collectors } from '../collectors/index.js'
 import { config } from '../config.js'
 import { ACCEPT_LANGUAGE, BROWSER_USER_AGENT, CARNET_API_BASE } from '../constants.js'
+import { type Locale } from '../shared/i18n.js'
 import { IPC, type ExtractProgressPayload, type ProgressPayload } from '../shared/ipc.js'
 
 import { authHeaders, installAuthCapture, seedAuthFromSessionStorage } from './auth.js'
@@ -12,6 +13,13 @@ import { type CaptureHandle, startCapture } from './capture.js'
 import { downloadCaptured } from './downloader.js'
 import { runExtraction } from './orchestrator.js'
 import { type AppWindow, createWindow, type RendererEntry } from './window.js'
+
+const localRunId = (): string => {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}h${pad(d.getMinutes())}`
+}
 
 const mostRecentRunDir = async (parent: string): Promise<string> => {
   const entries = await readdir(parent)
@@ -39,6 +47,32 @@ let win: AppWindow | undefined
 let capture: CaptureHandle | undefined
 let starting = false
 
+const detectLocale = async (siteContents: WebContents): Promise<void> => {
+  for (let i = 0; i < 5; i++) {
+    await new Promise<void>((r) => setTimeout(r, 200))
+
+    try {
+      const text = (await siteContents.executeJavaScript(
+        `(document.querySelector('h1, h2, [class*="title"], [class*="header"]')?.textContent ?? '').trim()`,
+      )) as string
+
+      if (text.includes('Health Booklet')) {
+        send(IPC.siteLocale, 'en' satisfies Locale)
+
+        return
+      }
+
+      if (text.includes('Carnet') || text.includes('santé') || text.includes('Santé')) {
+        send(IPC.siteLocale, 'fr' satisfies Locale)
+
+        return
+      }
+    } catch {
+      // frame not ready yet — retry
+    }
+  }
+}
+
 const send = (channel: string, payload: unknown): void => win?.toolbar.webContents.send(channel, payload)
 
 const rendererEntry = (): RendererEntry => {
@@ -61,13 +95,17 @@ const startCaptureRun = async (): Promise<void> => {
   starting = true
 
   try {
-    const runId = new Date().toISOString().replace(/[:.]/g, '-')
-    const runDir = resolve(config.rawDir, runId)
+    const runId = localRunId()
+    const runDir = resolve(config.baseDir, runId, 'raw')
 
     capture = await startCapture(win.site.webContents, runDir, (counts) =>
       send(IPC.captureProgress, { phase: 'capturing', ...counts } satisfies ProgressPayload),
     )
-    send(IPC.captureProgress, { phase: 'capturing', json: 0, binaries: 0 } satisfies ProgressPayload)
+    send(IPC.captureProgress, {
+      phase: 'capturing',
+      json: 0,
+      binaries: 0,
+    } satisfies ProgressPayload)
   } finally {
     starting = false
   }
@@ -100,12 +138,7 @@ const stopCaptureRun = async (): Promise<void> => {
 }
 
 const openOutputFolder = async (): Promise<void> => {
-  // Prefer the most recent extract run (output/<run>) — that's the clean deliverable.
-  // Fall back to the most recent capture run (raw/<run>) if no extract has happened yet,
-  // then to the base rawDir if neither exists.
-  const target = await mostRecentRunDir(config.outputDir)
-    .catch(() => mostRecentRunDir(config.rawDir))
-    .catch(() => config.rawDir)
+  const target = await mostRecentRunDir(config.baseDir).catch(() => config.baseDir)
 
   await shell.openPath(target)
 }
@@ -143,9 +176,9 @@ const wireIpc = (): void => {
     }
 
     const sess = session.fromPartition(config.partitionName)
-    const runId = new Date().toISOString().replace(/[:.]/g, '-')
-    const runRawDir = resolve(config.rawDir, runId)
-    const runOutputDir = resolve(config.outputDir, runId)
+    const runId = localRunId()
+    const runRawDir = resolve(config.baseDir, runId, 'raw')
+    const runOutputDir = resolve(config.baseDir, runId, 'output')
 
     try {
       await seedAuthFromSessionStorage(win.site.webContents)
@@ -190,6 +223,10 @@ const wireIpc = (): void => {
   ipcMain.handle(IPC.extractStop, () => {
     // Phase 3a: no cancellation support; extract runs to completion. Phase 3b can add an AbortController.
   })
+
+  // Forward locale and auth-state reports from the site preload to the toolbar.
+  ipcMain.on(IPC.siteLocale, (_event, locale: unknown) => send(IPC.siteLocale, locale))
+  ipcMain.on(IPC.siteAuthState, (_event, loggedIn: unknown) => send(IPC.siteAuthState, loggedIn))
 }
 
 void app.whenReady().then(() => {
@@ -210,15 +247,19 @@ void app.whenReady().then(() => {
   installAuthCapture(partitionSession)
 
   const preloadPath = join(import.meta.dirname, '../preload/index.mjs')
+  const sitePreloadPath = join(import.meta.dirname, '../preload/site.mjs')
 
-  const base = join(app.getPath('home'), 'carnet-sante-extractor')
+  config.baseDir = join(app.getPath('home'), 'carnet-sante-extractor')
 
-  config.outputDir = join(base, 'output')
-  config.rawDir = join(base, 'raw')
-
-  win = createWindow(rendererEntry(), preloadPath)
-  win.site.webContents.on('did-navigate', (_event, url) => win?.toolbar.webContents.send(IPC.siteUrl, url))
-  win.site.webContents.on('did-navigate-in-page', (_event, url) => win?.toolbar.webContents.send(IPC.siteUrl, url))
+  win = createWindow(rendererEntry(), preloadPath, sitePreloadPath)
+  win.site.webContents.on('did-navigate', (_event, url) => {
+    win?.toolbar.webContents.send(IPC.siteUrl, url)
+    void detectLocale(win!.site.webContents)
+  })
+  win.site.webContents.on('did-navigate-in-page', (_event, url) => {
+    win?.toolbar.webContents.send(IPC.siteUrl, url)
+    void detectLocale(win!.site.webContents)
+  })
 
   // BaseWindow has no own webContents, so the default menu's toggleDevTools target is undefined
   // and the role-based binding crashes. Bind F12 directly to each WebContentsView instead.

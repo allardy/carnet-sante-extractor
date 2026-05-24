@@ -3,6 +3,8 @@ export const IPC = {
   captureStop: 'capture:stop',
   captureProgress: 'capture:progress',
   siteUrl: 'site:url',
+  siteLocale: 'site:locale',
+  siteAuthState: 'site:auth-state',
   openOutput: 'output:open',
   extractStart: 'extract:start',
   extractStop: 'extract:stop',

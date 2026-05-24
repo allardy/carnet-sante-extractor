@@ -7,7 +7,7 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
-    build: { rollupOptions: { input: { index: 'src/preload/index.ts' } } },
+    build: { rollupOptions: { input: { index: 'src/preload/index.ts', site: 'src/preload/site.ts' } } },
   },
   renderer: {
     root: 'src/renderer',
