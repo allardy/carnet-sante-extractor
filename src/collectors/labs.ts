@@ -32,7 +32,8 @@ export const labsCollector: Collector = {
     // The actual Prelevements list item shape (discovered on first live run) is camelCase
     // with an opaque `id` (already the format the server wants in subsequent URLs) and a
     // `trackingId` that maps to the ?Tracking= query param on ResultatsAnalyse.
-    for (const item of list as Record<string, unknown>[]) {
+    for (const [idx, item] of (list as Record<string, unknown>[]).entries()) {
+      ctx.onItem?.(idx + 1, list.length, 'sample')
       const id = item['id']
 
       if (typeof id !== 'string') {

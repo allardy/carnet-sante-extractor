@@ -11,6 +11,9 @@ export type CollectContext = {
   nav: Navigator
   capture: CaptureStore
   citizenId: string
+  // Optional sub-progress hook. Collectors with a slow per-item loop (imaging exams, lab samples)
+  // call this so the UI can advance within a domain instead of looking frozen between domains.
+  onItem?: (done: number, total: number, label?: string) => void
 }
 
 export type DocumentDescriptor = {

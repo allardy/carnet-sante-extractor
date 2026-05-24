@@ -93,7 +93,7 @@ button:disabled {
 
 #step {
   overflow: hidden;
-  max-width: 380px;
+  max-width: 520px;
   font-weight: 500;
   color: #3f3f46;
   text-overflow: ellipsis;

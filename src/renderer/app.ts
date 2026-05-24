@@ -40,13 +40,18 @@ window.api.onExtractProgress((p) => {
 
   switch (p.phase) {
     case 'running': {
-      // Reserve the last 10% for the normalize + write phases so the bar never sits at 100% early.
-      const pct = p.domainsTotal > 0 ? (p.domainsDone / p.domainsTotal) * 90 : 0
+      // Advance fractionally within the current domain using sub-item progress, so a slow domain
+      // (imaging exams, lab samples, PDF downloads) keeps moving instead of freezing at its step.
+      // The last 10% is reserved for the normalize + write phases.
+      const within = p.itemsTotal && p.itemsTotal > 0 ? (p.itemsDone ?? 0) / p.itemsTotal : 0
+      const pct = p.domainsTotal > 0 ? ((p.domainsDone + within) / p.domainsTotal) * 90 : 0
+      const sub =
+        p.itemsTotal && p.itemsTotal > 0 ? ` · ${p.itemLabel ?? 'item'} ${p.itemsDone ?? 0}/${p.itemsTotal}` : ''
 
       setProgress(pct)
       setStep(
         p.currentDomain
-          ? `Collecting — ${prettyDomain(p.currentDomain)} (${p.domainsDone}/${p.domainsTotal})`
+          ? `Collecting — ${prettyDomain(p.currentDomain)} (${p.domainsDone}/${p.domainsTotal})${sub}`
           : 'Starting…',
       )
       break

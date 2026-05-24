@@ -37,7 +37,8 @@ export const imagingCollector: Collector = {
     const documents: DocumentDescriptor[] = []
     const diagnostics: { examId: string; detailKeys: string[]; reason: string }[] = []
 
-    for (const e of list) {
+    for (const [idx, e] of list.entries()) {
+      ctx.onItem?.(idx + 1, list.length, 'exam')
       const examId = asString(pick(e, 'NumeroExamen', 'numeroExamen'))
       const description = asString(pick(e, 'DescriptionExamen', 'descriptionExamen')) ?? 'Examen'
       const dateExamen = asString(pick(e, 'DateExamen', 'dateExamen')) ?? ''
