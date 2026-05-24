@@ -1,1 +1,1 @@
-{ "Adresse": "123 Test Street", "Ville": "Montreal", "CodePostal": "H0H 0H0", "Province": "QC" }
+{ "Adresse": { "Ligne1": "1-123 rue Example", "Ligne2": "Montréal (Québec) H0H 0H0", "Ligne3": "" } }

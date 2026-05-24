@@ -1,1 +1,6 @@
-{ "Numero": "555-0100", "Confirme": true }
+{
+  "IndicateurVerifie": true,
+  "IndicateurCodeTransmis": false,
+  "CodeProvenance": "NonDefini",
+  "Numero": "555-0100"
+}

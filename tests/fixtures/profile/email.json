@@ -1,1 +1,6 @@
-{ "Adresse": "jane.doe@example.invalid", "Confirme": true }
+{
+  "IndicateurVerifie": true,
+  "IndicateurCodeTransmis": false,
+  "CodeProvenance": "ClicSequr",
+  "Adresse": "jane.doe@example.invalid"
+}

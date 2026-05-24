@@ -92,6 +92,8 @@ export const profileMarkdown = (p: CleanProfile): string => {
 
   if (p.familyDoctor) {
     lines.push(`**Family doctor:** ${p.familyDoctor}`)
+  } else if (p.familyDoctorStatus) {
+    lines.push(`**Family doctor:** ${p.familyDoctorStatus}`)
   }
 
   lines.push('', '---', '', '[← Summary](../summary.md) · [Raw JSON](../data/profile.json)')

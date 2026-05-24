@@ -16,16 +16,27 @@ export const citoyenSchema = z.object({
   PersonnesACharge: z.array(z.unknown()).nullable(),
 })
 
+// Real API returns Adresse as a {Ligne1,Ligne2,Ligne3} object; the Phase-2 best-guess assumed a
+// flat string alongside separate Ville/Province/CodePostal. Accept either.
+const adresseObjetSchema = z.object({
+  Ligne1: z.string().optional(),
+  Ligne2: z.string().optional(),
+  Ligne3: z.string().optional(),
+})
+
 export const coordonneesSchema = z.object({
-  Adresse: z.string().optional(),
+  Adresse: z.union([z.string(), adresseObjetSchema]).optional(),
   Ville: z.string().optional(),
   CodePostal: z.string().optional(),
   Province: z.string().optional(),
 })
 
-// Fields optional — some citizens have no card on file (compounded situations, etc.)
+// Fields optional — some citizens have no card on file (compounded situations, etc.). Real API uses
+// NAM + DateExpirationCarte; the Phase-2 best-guess assumed Numero + DateExpiration. Accept either.
 export const carteSchema = z
   .object({
+    NAM: z.string().optional(),
+    DateExpirationCarte: isoDate.optional(),
     Numero: z.string().optional(),
     DateExpiration: isoDate.optional(),
   })
@@ -41,11 +52,17 @@ export const phoneSchema = z.object({
   Confirme: z.boolean().optional(),
 })
 
-export const medecinSchema = z.object({
-  ANomMedecinFamille: z.string().optional(),
-  APrenomMedecinFamille: z.string().optional(),
-  AClinique: z.string().optional(),
-})
+// Real API surfaces an enrolment Situation (e.g. 'InscritAuGuichet') instead of a doctor name when
+// none is assigned. Legacy best-guess name fields kept for the assigned-doctor case.
+export const medecinSchema = z
+  .object({
+    Situation: z.string().optional(),
+    MedecinFamilleAVenir: z.unknown().nullable().optional(),
+    ANomMedecinFamille: z.string().optional(),
+    APrenomMedecinFamille: z.string().optional(),
+    AClinique: z.string().optional(),
+  })
+  .passthrough()
 
 export type CleanProfile = {
   citizenId: string
@@ -58,6 +75,7 @@ export type CleanProfile = {
   phone?: string
   address?: string
   familyDoctor?: string
+  familyDoctorStatus?: string
 }
 
 const posologieSchema = z.object({

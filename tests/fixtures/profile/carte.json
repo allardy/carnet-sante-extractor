@@ -1,1 +1,6 @@
-{ "Numero": "DOEJ12345678", "DateExpiration": "2030-12-31T00:00:00" }
+{
+  "NAM": "DOEJ12345678",
+  "IndicateurCarteExpiree": false,
+  "DateExpirationCarte": "2030-12-31T00:00:00",
+  "StatutPeriodeRenouvellement": "Non"
+}

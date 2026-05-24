@@ -13,7 +13,7 @@ const loadFixture = async (name: string): Promise<unknown> => {
 }
 
 describe('normalizeProfile', () => {
-  it('flattens the assembled raw into a CleanProfile', async () => {
+  it('flattens the real API shape (object Adresse, NAM, Situation) into a CleanProfile', async () => {
     const raw: ProfileRaw = {
       citoyen: await loadFixture('citoyen'),
       coordonnees: await loadFixture('coordonnees'),
@@ -32,8 +32,36 @@ describe('normalizeProfile', () => {
     expect(result.cardExpires).toBe('2030-12-31')
     expect(result.email).toBe('jane.doe@example.invalid')
     expect(result.phone).toBe('555-0100')
+    expect(result.address).toBe('1-123 rue Example, Montréal (Québec) H0H 0H0')
+    // No assigned doctor — only an enrolment situation is surfaced.
+    expect(result.familyDoctor).toBeUndefined()
+    expect(result.familyDoctorStatus).toBe("Inscrit au guichet d'accès (aucun médecin assigné)")
+  })
+
+  it('stays tolerant of the legacy best-guess shape (string Adresse, Numero, named doctor)', () => {
+    const result = normalizeProfile({
+      citoyen: {
+        IdCitoyen: '99999',
+        Nom: 'DOE',
+        Prenom: 'JANE',
+        Sexe: 'Femme',
+        DateNaissance: '1980-01-01T00:00:00',
+        IndAdmissibiliteCarnetSante: true,
+        EstAgeEntre14Et17Ans: false,
+        PersonnesACharge: null,
+      },
+      coordonnees: { Adresse: '123 Test Street', Ville: 'Montreal', Province: 'QC', CodePostal: 'H0H 0H0' },
+      carte: { Numero: 'DOEJ12345678', DateExpiration: '2030-12-31T00:00:00' },
+      email: { Adresse: 'jane.doe@example.invalid' },
+      phone: { Numero: '555-0100' },
+      medecin: { ANomMedecinFamille: 'SMITH', APrenomMedecinFamille: 'JOHN' },
+    })
+
+    expect(result.cardNumber).toBe('DOEJ12345678')
+    expect(result.cardExpires).toBe('2030-12-31')
     expect(result.address).toBe('123 Test Street, Montreal, QC, H0H 0H0')
     expect(result.familyDoctor).toBe('JOHN SMITH')
+    expect(result.familyDoctorStatus).toBeUndefined()
   })
 
   it('handles missing optional sections without throwing', async () => {
@@ -44,5 +72,6 @@ describe('normalizeProfile', () => {
     expect(result.cardNumber).toBeUndefined()
     expect(result.email).toBeUndefined()
     expect(result.familyDoctor).toBeUndefined()
+    expect(result.familyDoctorStatus).toBeUndefined()
   })
 })

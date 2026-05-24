@@ -17,6 +17,26 @@ export type ProfileRaw = {
   medecin?: unknown
 }
 
+// Known enrolment situations surfaced when no family doctor is assigned. Unmapped values pass
+// through verbatim so we never silently drop a status we haven't seen yet.
+const situationLabels: Record<string, string> = {
+  InscritAuGuichet: "Inscrit au guichet d'accès (aucun médecin assigné)",
+}
+
+const formatAddress = (coordonnees: ReturnType<typeof coordonneesSchema.parse> | undefined): string | undefined => {
+  if (!coordonnees) {
+    return undefined
+  }
+
+  const adresse = coordonnees.Adresse
+  const parts =
+    adresse && typeof adresse === 'object'
+      ? [adresse.Ligne1, adresse.Ligne2, adresse.Ligne3]
+      : [adresse, coordonnees.Ville, coordonnees.Province, coordonnees.CodePostal]
+
+  return parts.filter(Boolean).join(', ') || undefined
+}
+
 export const normalizeProfile = (raw: ProfileRaw): CleanProfile => {
   const citoyen = citoyenSchema.parse(raw.citoyen)
   const carte = raw.carte ? carteSchema.parse(raw.carte) : undefined
@@ -25,24 +45,24 @@ export const normalizeProfile = (raw: ProfileRaw): CleanProfile => {
   const coordonnees = raw.coordonnees ? coordonneesSchema.parse(raw.coordonnees) : undefined
   const medecin = raw.medecin ? medecinSchema.parse(raw.medecin) : undefined
 
-  const address = coordonnees
-    ? [coordonnees.Adresse, coordonnees.Ville, coordonnees.Province, coordonnees.CodePostal].filter(Boolean).join(', ')
-    : undefined
   const familyDoctor =
     medecin && (medecin.APrenomMedecinFamille || medecin.ANomMedecinFamille)
       ? `${medecin.APrenomMedecinFamille ?? ''} ${medecin.ANomMedecinFamille ?? ''}`.trim() || undefined
       : undefined
+  const familyDoctorStatus =
+    !familyDoctor && medecin?.Situation ? (situationLabels[medecin.Situation] ?? medecin.Situation) : undefined
 
   return {
     citizenId: citoyen.IdCitoyen,
     fullName: `${citoyen.Prenom} ${citoyen.Nom}`,
     birthDate: citoyen.DateNaissance.slice(0, 10),
     sex: citoyen.Sexe,
-    cardNumber: carte?.Numero,
-    cardExpires: carte?.DateExpiration?.slice(0, 10),
+    cardNumber: carte?.NAM ?? carte?.Numero,
+    cardExpires: (carte?.DateExpirationCarte ?? carte?.DateExpiration)?.slice(0, 10),
     email: email?.Adresse,
     phone: phone?.Numero,
-    address: address || undefined,
+    address: formatAddress(coordonnees),
     familyDoctor,
+    familyDoctorStatus,
   }
 }
