@@ -1,4 +1,4 @@
-# carnet-sante-extract — Phase 2 endpoint map
+# carnet-sante-extractor — Phase 2 endpoint map
 
 **Capture date:** 2026-05-23
 **Capture size:** 66 JSON responses + 2 PDFs (one section walked per data type, not exhaustive)
