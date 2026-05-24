@@ -49,4 +49,4 @@ The toolbar's **Open output** button lands you in the most recent run's folder a
 
 ## Status
 
-Phase 1/2/3 implemented. Phase 4 (vaccines via Carnet de vaccination, a separate portal) is optional and out of scope for this app. See `docs/superpowers/specs/2026-05-23-carnet-sante-extract-design.md`.
+Implemented end-to-end: log in, capture, and extract every domain into clean Markdown + JSON with organized PDFs. Vaccines (a separate Carnet de vaccination portal) are out of scope. See [`docs/api-reference.md`](docs/api-reference.md) for the mapped endpoint surface.

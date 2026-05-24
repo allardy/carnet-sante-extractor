@@ -2,7 +2,7 @@
 
 Electron desktop app that logs you into Carnet Santé Québec (you do the login by hand, MFA included), then takes over the live session to capture the JSON the site renders + download every PDF, for later normalization into clean Markdown/JSON.
 
-**Design spec:** [`docs/superpowers/specs/2026-05-23-carnet-sante-extract-design.md`](docs/superpowers/specs/2026-05-23-carnet-sante-extract-design.md)
+**API reference:** [`docs/api-reference.md`](docs/api-reference.md) — the mapped Carnet Santé + RAMQ endpoint surface, response shapes, and date-range caps.
 
 ## Privacy — non-negotiable
 
@@ -40,7 +40,7 @@ Drive the UI like a human, **passively capture** the JSON it fires (hybrid), the
 ## Build status
 
 - [x] **Phase 1** — Electron capture app + NSIS installer. `pnpm package` ships a double-click `.exe`. Output rooted at `~/carnet-sante-extractor/` (never under Documents/, never OneDrive-redirected). Every capture/extract run lands in its own ISO-timestamped subfolder.
-- [x] **Phase 2** — live recon mapped the endpoint surface; see `docs/superpowers/notes/2026-05-23-phase2-endpoint-map.md`.
+- [x] **Phase 2** — endpoint surface mapped; see [`docs/api-reference.md`](docs/api-reference.md).
 - [x] **Phase 3** — collectors + normalize + markdown + manifest + summary. Extract button runs the full pipeline.
 - [x] **Phase 3 hardening** (live-tuned over multiple iterations):
   - Bearer JWT bootstrap from oidc-client-js sessionStorage + live capture via `webRequest.onBeforeSendHeaders` (token auto-refreshes mid-run).
