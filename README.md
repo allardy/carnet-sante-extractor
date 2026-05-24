@@ -21,6 +21,22 @@ pnpm package    # → release/Carnet Sante Extractor Setup <version>.exe (Window
 
 The build is unsigned, so Windows SmartScreen warns on first launch — **More info → Run anyway**.
 
+## What it extracts
+
+Each domain becomes a `data/<domain>.json` + a linked `markdown/<domain>.md`; imaging and labs also pull their report PDFs.
+
+| Domain              | What you get                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Profile**         | Name, sex, birth date, health-card number + expiry, address, email, phone, family-doctor status               |
+| **Medications**     | Prescriptions — drug (DIN), posology, prescriber, pharmacy, duration, refills remaining, last-dispensed date   |
+| **Appointments**    | Scheduled appointments — date/time, doctor, clinic, specialty, status                                          |
+| **Medical services** | RAMQ-billed services/visits — date, description, practitioner, facility, amount paid by RAMQ                   |
+| **Imaging**         | Exam list (date, description, prescriber) + every radiology **report PDF**                                      |
+| **Labs**            | Sample list + structured analyses (value / reference / abnormal flag) + every lab **report PDF**               |
+| **Folder access**   | The access journal — **who consulted your record**: each worker's name + role, when, and which domains they saw |
+
+Vaccines (a separate _Carnet de vaccination_ portal) are out of scope. Endpoint surface + response shapes: [`docs/api-reference.md`](docs/api-reference.md).
+
 ## Output
 
 Written to `~/carnet-sante-extractor/` — every run lives in its own ISO-timestamped subfolder so prior runs are preserved:
@@ -49,4 +65,4 @@ The toolbar's **Open output** button lands you in the most recent run's folder a
 
 ## Status
 
-Implemented end-to-end: log in, capture, and extract every domain into clean Markdown + JSON with organized PDFs. Vaccines (a separate Carnet de vaccination portal) are out of scope. See [`docs/api-reference.md`](docs/api-reference.md) for the mapped endpoint surface.
+Implemented end-to-end: log in, capture, and extract every domain above into clean Markdown + JSON with organized PDFs.
