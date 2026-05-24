@@ -1,4 +1,4 @@
-import { app, ipcMain, Menu, session, shell, type WebContents } from 'electron'
+import { app, ipcMain, Menu, type MenuItemConstructorOptions, session, shell, type WebContents } from 'electron'
 import { readdir, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
@@ -50,62 +50,90 @@ const rendererEntry = (): RendererEntry => {
   return { file: join(import.meta.dirname, '../renderer/index.html') }
 }
 
+// Capture/open are exposed both as IPC handlers (legacy toolbar buttons) and as native
+// debug-menu actions, so the logic lives in plain functions both call.
+const startCaptureRun = async (): Promise<void> => {
+  if (!win || capture || starting) {
+    return
+  }
+
+  starting = true
+
+  try {
+    const runId = new Date().toISOString().replace(/[:.]/g, '-')
+    const runDir = resolve(config.rawDir, runId)
+
+    capture = await startCapture(win.site.webContents, runDir, (counts) =>
+      send(IPC.captureProgress, { phase: 'capturing', ...counts } satisfies ProgressPayload),
+    )
+    send(IPC.captureProgress, { phase: 'capturing', json: 0, binaries: 0 } satisfies ProgressPayload)
+  } finally {
+    starting = false
+  }
+}
+
+const stopCaptureRun = async (): Promise<void> => {
+  if (!capture) {
+    return
+  }
+
+  const { store, runDir } = capture
+
+  await capture.stop()
+  capture = undefined
+  send(IPC.captureProgress, {
+    phase: 'downloading',
+    json: store.json.length,
+    binaries: store.binaries.length,
+  } satisfies ProgressPayload)
+
+  const ses = session.fromPartition(config.partitionName)
+  const downloaded = await downloadCaptured(ses, store.binaries, resolve(runDir, 'documents'))
+
+  send(IPC.captureProgress, {
+    phase: 'done',
+    json: store.json.length,
+    binaries: store.binaries.length,
+    downloaded,
+  } satisfies ProgressPayload)
+}
+
+const openOutputFolder = async (): Promise<void> => {
+  // Prefer the most recent extract run (output/<run>) — that's the clean deliverable.
+  // Fall back to the most recent capture run (raw/<run>) if no extract has happened yet,
+  // then to the base rawDir if neither exists.
+  const target = await mostRecentRunDir(config.outputDir)
+    .catch(() => mostRecentRunDir(config.rawDir))
+    .catch(() => config.rawDir)
+
+  await shell.openPath(target)
+}
+
 const wireIpc = (): void => {
-  ipcMain.handle(IPC.captureStart, async () => {
-    if (!win || capture || starting) {
+  ipcMain.handle(IPC.captureStart, () => startCaptureRun())
+  ipcMain.handle(IPC.captureStop, () => stopCaptureRun())
+  ipcMain.handle(IPC.openOutput, () => openOutputFolder())
+
+  // The toolbar's ⚙ button asks main to pop a native menu. A native popup isn't clipped by the
+  // toolbar WebContentsView's 56px bounds the way an HTML dropdown would be.
+  ipcMain.handle(IPC.debugMenu, () => {
+    if (!win) {
       return
     }
 
-    starting = true
+    const template: MenuItemConstructorOptions[] = [
+      { label: 'Debug tools', enabled: false },
+      { type: 'separator' },
+      capture
+        ? { label: 'Stop capture & save', click: () => void stopCaptureRun() }
+        : { label: 'Start capture', click: () => void startCaptureRun() },
+      { label: 'Open output folder', click: () => void openOutputFolder() },
+      { type: 'separator' },
+      { label: 'DevTools — site', click: () => win?.site.webContents.toggleDevTools() },
+      { label: 'DevTools — toolbar', click: () => win?.toolbar.webContents.toggleDevTools() },
+    ]
 
-    try {
-      const runId = new Date().toISOString().replace(/[:.]/g, '-')
-      const runDir = resolve(config.rawDir, runId)
-
-      capture = await startCapture(win.site.webContents, runDir, (counts) =>
-        send(IPC.captureProgress, { phase: 'capturing', ...counts } satisfies ProgressPayload),
-      )
-      send(IPC.captureProgress, { phase: 'capturing', json: 0, binaries: 0 } satisfies ProgressPayload)
-    } finally {
-      starting = false
-    }
-  })
-
-  ipcMain.handle(IPC.captureStop, async () => {
-    if (!capture) {
-      return
-    }
-
-    const { store, runDir } = capture
-
-    await capture.stop()
-    capture = undefined
-    send(IPC.captureProgress, {
-      phase: 'downloading',
-      json: store.json.length,
-      binaries: store.binaries.length,
-    } satisfies ProgressPayload)
-
-    const ses = session.fromPartition(config.partitionName)
-    const downloaded = await downloadCaptured(ses, store.binaries, resolve(runDir, 'documents'))
-
-    send(IPC.captureProgress, {
-      phase: 'done',
-      json: store.json.length,
-      binaries: store.binaries.length,
-      downloaded,
-    } satisfies ProgressPayload)
-  })
-
-  ipcMain.handle(IPC.openOutput, async () => {
-    // Prefer the most recent extract run (output/<run>) — that's the clean deliverable.
-    // Fall back to the most recent capture run (raw/<run>) if no extract has happened yet,
-    // then to the base rawDir if neither exists.
-    const target = await mostRecentRunDir(config.outputDir)
-      .catch(() => mostRecentRunDir(config.rawDir))
-      .catch(() => config.rawDir)
-
-    await shell.openPath(target)
+    Menu.buildFromTemplate(template).popup()
   })
 
   ipcMain.handle(IPC.extractStart, async () => {

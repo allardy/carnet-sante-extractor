@@ -1,70 +1,85 @@
-const statusEl = document.querySelector<HTMLSpanElement>('#status')!
-const urlEl = document.querySelector<HTMLSpanElement>('#url')!
-const toggleEl = document.querySelector<HTMLButtonElement>('#toggle')!
+const startEl = document.querySelector<HTMLButtonElement>('#start')!
 const openEl = document.querySelector<HTMLButtonElement>('#open')!
+const debugEl = document.querySelector<HTMLButtonElement>('#debug')!
+const stepEl = document.querySelector<HTMLSpanElement>('#step')!
+const progressEl = document.querySelector<HTMLDivElement>('#progress')!
+const fillEl = document.querySelector<HTMLDivElement>('#progress-fill')!
 
-let capturing = false
+type StepState = '' | 'done' | 'error'
 
-toggleEl.addEventListener('click', () => {
-  if (capturing) {
-    void window.api.stopCapture()
-    capturing = false
-    toggleEl.textContent = 'Start capture'
-  } else {
-    void window.api.startCapture()
-    capturing = true
-    toggleEl.textContent = 'Stop & save'
-  }
-})
+const prettyDomain = (d: string): string => d.replace(/-/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
 
-openEl.addEventListener('click', () => {
-  void window.api.openOutput()
-})
+const setStep = (text: string, state: StepState = ''): void => {
+  stepEl.textContent = text
+  stepEl.className = state
+}
 
-window.api.onSiteUrl((url) => {
-  urlEl.textContent = url
-})
+const setProgress = (pct: number, state: StepState = ''): void => {
+  progressEl.hidden = false
+  progressEl.className = `progress${state ? ` ${state}` : ''}`
+  fillEl.style.width = `${Math.max(0, Math.min(100, pct))}%`
+}
 
-window.api.onProgress((payload) => {
-  const tail = payload.downloaded === undefined ? '' : `, ${payload.downloaded} downloaded`
-
-  statusEl.textContent = `${payload.phase} — ${payload.json} JSON, ${payload.binaries} PDF${tail}`
-  toggleEl.disabled = payload.phase === 'downloading'
-
-  if (payload.phase === 'done') {
-    capturing = false
-    toggleEl.textContent = 'Start capture'
-    toggleEl.disabled = false
-  }
-})
-
-const extractEl = document.querySelector<HTMLButtonElement>('#extract')!
 let extracting = false
 
-extractEl.addEventListener('click', () => {
+startEl.addEventListener('click', () => {
   if (extracting) {
-    void window.api.stopExtract()
-  } else {
-    void window.api.startExtract()
+    return
+  }
+
+  void window.api.startExtract()
+})
+
+openEl.addEventListener('click', () => void window.api.openOutput())
+debugEl.addEventListener('click', () => void window.api.openDebugMenu())
+
+window.api.onExtractProgress((p) => {
+  extracting = p.phase === 'running' || p.phase === 'normalizing' || p.phase === 'writing'
+  startEl.disabled = extracting
+  startEl.textContent = extracting ? 'Extracting…' : 'Extract my health record'
+
+  switch (p.phase) {
+    case 'running': {
+      // Reserve the last 10% for the normalize + write phases so the bar never sits at 100% early.
+      const pct = p.domainsTotal > 0 ? (p.domainsDone / p.domainsTotal) * 90 : 0
+
+      setProgress(pct)
+      setStep(
+        p.currentDomain
+          ? `Collecting — ${prettyDomain(p.currentDomain)} (${p.domainsDone}/${p.domainsTotal})`
+          : 'Starting…',
+      )
+      break
+    }
+    case 'normalizing':
+      setProgress(93)
+      setStep('Normalizing records…')
+      break
+    case 'writing':
+      setProgress(97)
+      setStep('Writing Markdown, JSON & PDFs…')
+      break
+    case 'done':
+      setProgress(100, 'done')
+      setStep('Done — your health record is ready. Open the output folder.', 'done')
+      startEl.textContent = 'Extract again'
+      break
+    case 'error':
+      setProgress(100, 'error')
+      setStep(`Error: ${p.error ?? 'extraction failed'}`, 'error')
+      startEl.title = p.error ?? ''
+      startEl.textContent = 'Try again'
+      break
   }
 })
 
-window.api.onExtractProgress((payload) => {
-  extracting = payload.phase === 'running' || payload.phase === 'normalizing' || payload.phase === 'writing'
-  extractEl.textContent = extracting ? 'Stop extract' : 'Extract everything'
+// Capture is a debugging flow (started from the ⚙ menu). It shares the step line.
+window.api.onProgress((p) => {
+  const tail = p.downloaded === undefined ? '' : `, ${p.downloaded} downloaded`
 
-  const parts: string[] = []
-
-  if (payload.currentDomain) {
-    parts.push(payload.currentDomain)
+  if (p.phase === 'done') {
+    setStep(`Capture saved — ${p.json} JSON, ${p.binaries} PDF${tail}.`, 'done')
+  } else {
+    setStep(`Capturing — ${p.json} JSON, ${p.binaries} PDF${tail}…`)
   }
-
-  if (payload.error) {
-    parts.push(payload.error)
-  }
-
-  const tail = parts.length > 0 ? ` — ${parts.join(' — ')}` : ''
-
-  statusEl.textContent = `extract: ${payload.phase} (${payload.domainsDone}/${payload.domainsTotal})${tail}`
-  statusEl.title = payload.error ?? ''
 })

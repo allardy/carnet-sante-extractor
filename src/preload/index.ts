@@ -22,6 +22,7 @@ const api = {
   },
   startExtract: (): Promise<void> => ipcRenderer.invoke(IPC.extractStart),
   stopExtract: (): Promise<void> => ipcRenderer.invoke(IPC.extractStop),
+  openDebugMenu: (): Promise<void> => ipcRenderer.invoke(IPC.debugMenu),
   onExtractProgress: (cb: (payload: ExtractProgressPayload) => void): (() => void) => {
     const handler = (_event: unknown, payload: ExtractProgressPayload): void => cb(payload)
 

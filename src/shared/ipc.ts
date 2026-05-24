@@ -7,6 +7,7 @@ export const IPC = {
   extractStart: 'extract:start',
   extractStop: 'extract:stop',
   extractProgress: 'extract:progress',
+  debugMenu: 'debug:menu',
 } as const
 
 export type Phase = 'idle' | 'capturing' | 'downloading' | 'done'
