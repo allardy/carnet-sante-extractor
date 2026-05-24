@@ -17,7 +17,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm exec electron-builder --win
+      - run: pnpm exec electron-builder --win --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -34,7 +34,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm exec electron-builder --mac --universal
+      - run: pnpm exec electron-builder --mac --universal --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: mac
@@ -51,7 +51,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm exec electron-builder --linux
+      - run: pnpm exec electron-builder --linux --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: linux
