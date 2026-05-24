@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest'
 import { renameDocument } from '../src/output/rename.js'
 
 describe('renameDocument', () => {
-  it('builds <type>/SLUG_DATE.pdf from descriptor', () => {
+  it('builds <type>/DATE_SLUG.pdf from descriptor', () => {
     const taken = new Set<string>()
     const out = renameDocument(
       { id: 'abc', url: 'x', title: 'Radiographie thorax', type: 'imagerie', date: '2024-06-15' },
       taken,
     )
 
-    expect(out).toBe('imagerie/RADIOGRAPHIE_THORAX_2024-06-15.pdf')
+    expect(out).toBe('imagerie/2024-06-15_RADIOGRAPHIE_THORAX.pdf')
     expect(taken.has(out)).toBe(true)
   })
 
@@ -20,15 +20,17 @@ describe('renameDocument', () => {
       new Set(),
     )
 
-    expect(out).toBe('imagerie/ECHOGRAPHIE_PRE_NATALE_2024-01-01.pdf')
+    expect(out).toBe('imagerie/2024-01-01_ECHOGRAPHIE_PRE_NATALE.pdf')
   })
 
-  it('disambiguates collisions by appending id suffix', () => {
+  it('disambiguates collisions with sequential _2, _3 suffixes', () => {
     const taken = new Set<string>()
     const first = renameDocument({ id: 'AAAAAA111111', url: '', title: 'X', type: 't', date: '2024-01-01' }, taken)
     const second = renameDocument({ id: 'BBBBBB222222', url: '', title: 'X', type: 't', date: '2024-01-01' }, taken)
+    const third = renameDocument({ id: 'CCCCCC333333', url: '', title: 'X', type: 't', date: '2024-01-01' }, taken)
 
-    expect(first).toBe('t/X_2024-01-01.pdf')
-    expect(second).toBe('t/X_2024-01-01_222222.pdf')
+    expect(first).toBe('t/2024-01-01_X.pdf')
+    expect(second).toBe('t/2024-01-01_X_2.pdf')
+    expect(third).toBe('t/2024-01-01_X_3.pdf')
   })
 })

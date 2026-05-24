@@ -15,11 +15,23 @@ pnpm dev        # launches the app — log in, then either:
 
 ## Build the installer
 
+Locally (builds for the current platform only):
+
 ```bash
-pnpm package    # → release/Carnet Sante Extractor Setup <version>.exe (Windows, NSIS)
+pnpm package
+# Windows → release/Carnet Sante Extractor Setup <version>.exe  (NSIS)
+# macOS   → release/Carnet Sante Extractor-<version>.dmg        (universal: x64 + arm64)
+# Linux   → release/Carnet Sante Extractor-<version>.AppImage
 ```
 
-The build is unsigned, so Windows SmartScreen warns on first launch — **More info → Run anyway**.
+Builds are unsigned. On Windows, SmartScreen warns on first launch — **More info → Run anyway**. On macOS, Gatekeeper blocks unsigned apps — **right-click the DMG → Open** to bypass.
+
+**Releases** are built for all three platforms automatically by the GitHub Actions workflow whenever a `v*.*.*` tag is pushed:
+
+```bash
+# bump version in package.json, then:
+git tag v0.3.0 && git push origin v0.3.0
+```
 
 ## What it extracts
 
@@ -42,19 +54,20 @@ Vaccines (a separate _Carnet de vaccination_ portal) are out of scope. Endpoint 
 Written to `~/carnet-sante-extractor/` — every run lives in its own ISO-timestamped subfolder so prior runs are preserved:
 
 ```
-raw/<ISO-timestamp>/   # one folder per capture/extract run — full server payloads
-  responses/   captured JSON (Capture flow)
-  data/        per-domain raw JSON (Extract flow)
-  documents/   downloaded PDFs (raw filenames by report id)
-  log.jsonl    one-event-per-line for tooling
-  log.txt      same events, human-readable
-
-output/<ISO-timestamp>/   # one folder per extract run — clean deliverables
-  data/        normalized JSON (or raw fallback if a schema misses)
-  markdown/    per-domain markdown rollups, linked to PDFs + raw JSON
-  documents/   renamed PDFs organized by type (imagerie/, laboratoire/)
-  manifest.json
-  summary.md   top-level health record summary
+~/carnet-sante-extractor/
+  <ISO-timestamp>/
+    raw/         full server payloads for the run
+      responses/   captured JSON (Capture flow)
+      data/        per-domain raw JSON (Extract flow)
+      documents/   downloaded PDFs (raw filenames by report id)
+      log.jsonl    one-event-per-line for tooling
+      log.txt      same events, human-readable
+    output/      clean deliverables for the run
+      data/        normalized JSON (or raw fallback if a schema misses)
+      markdown/    per-domain markdown rollups, linked to PDFs + raw JSON
+      documents/   renamed PDFs organized by type (imagerie/, laboratoire/)
+      manifest.json
+      summary.md   top-level health record summary
 ```
 
 The toolbar's **Open output** button lands you in the most recent run's folder automatically.

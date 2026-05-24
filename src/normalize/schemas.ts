@@ -233,7 +233,7 @@ export const prelevementListItemSchema = z.object({
   trackingId: z.string().optional(),
   datePrelevement: isoDate.optional(),
   dateEnvoiPrescripteur: isoDate.nullable().optional(),
-  statutRapport: z.string().optional(),
+  statutRapport: z.union([z.string(), z.number()]).optional(),
   nomPrescripteur: z.string().optional(),
   prenomPrescripteur: z.string().optional(),
   dateDisponibiliteResultatAnalyse: isoDate.nullable().optional(),

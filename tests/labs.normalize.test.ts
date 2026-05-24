@@ -24,4 +24,22 @@ describe('normalizeLabs', () => {
     expect(result[0]?.analyses[0]?.label).toBe('Hémoglobine')
     expect(result[0]?.reports[0]?.id).toBe('RPT0001')
   })
+
+  it('accepts statutRapport as a number (API sometimes returns integer status codes)', () => {
+    const list = [
+      {
+        id: '9999',
+        datePrelevement: '2024-03-01T08:00:00-05:00',
+        statutRapport: 2,
+        nomPrescripteur: 'DOE',
+        prenomPrescripteur: 'JANE',
+      },
+    ]
+
+    expect(() => normalizeLabs({ list, rapports: {}, results: {} })).not.toThrow()
+    const result = normalizeLabs({ list, rapports: {}, results: {} })
+
+    expect(result).toHaveLength(1)
+    expect(result[0]?.date).toBe('2024-03-01')
+  })
 })

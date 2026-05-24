@@ -10,19 +10,13 @@ const slug = (s: string): string =>
 
 export const renameDocument = (d: DocumentDescriptor, taken: Set<string>): string => {
   const date = d.date ?? '0000-00-00'
-  const base = `${d.type}/${slug(d.title)}_${date}`
+  const base = `${d.type}/${date}_${slug(d.title)}`
   let name = `${base}.pdf`
   let i = 1
 
   while (taken.has(name)) {
-    const suffix = d.id.slice(-6)
-
-    name = `${base}_${suffix}.pdf`
-
-    if (taken.has(name)) {
-      i += 1
-      name = `${base}_${suffix}-${i}.pdf`
-    }
+    i += 1
+    name = `${base}_${i}.pdf`
   }
 
   taken.add(name)
