@@ -1,4 +1,4 @@
-# carnet-sante-extractor
+# Carnet Santé Extractor
 
 Desktop app that pulls **everything** out of [Carnet Santé Québec](https://carnetsante.gouv.qc.ca) — the Quebec government health portal that has no API and no bulk download. Open the app, log in by hand (MFA and all), and it takes over the live session: it captures the structured data the site renders + downloads every PDF, ready to be normalized into clean **Markdown + JSON** for an LLM later.
 
@@ -26,11 +26,12 @@ pnpm package
 
 Builds are unsigned. On Windows, SmartScreen warns on first launch — **More info → Run anyway**. On macOS, Gatekeeper blocks unsigned apps — **right-click the DMG → Open** to bypass.
 
-**Releases** are built for all three platforms automatically by the GitHub Actions workflow whenever a `v*.*.*` tag is pushed:
+**Releases** are built for all three platforms automatically by the GitHub Actions workflow whenever `package.json`'s `version` field changes on `master`:
 
 ```bash
-# bump version in package.json, then:
-git tag v0.3.0 && git push origin v0.3.0
+# bump version in package.json, commit, push — the workflow does the rest
+npm version patch   # or minor / major, or edit package.json directly
+git push origin master
 ```
 
 ## What it extracts
