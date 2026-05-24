@@ -22,6 +22,6 @@ describe('normalizeImaging', () => {
 
     expect(result).toHaveLength(1)
     expect(result[0]?.reportIds).toHaveLength(1)
-    expect(result[0]?.reportIds[0]).toBe('10616420602.16.840.1.113883.3.234.1.3.101.1.2.10152.2024.73630901.20')
+    expect(result[0]?.reportIds[0]).toBe('999999999999.16.840.1.113883.3.234.1.3.101.1.2.99999.2099.99999999.20')
   })
 })
