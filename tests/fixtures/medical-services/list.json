@@ -1,7 +1,7 @@
 [
   {
-    "NomProfessionnel": "LAVERTU",
-    "PrenomProfessionnel": "CAROLINE",
+    "NomProfessionnel": "TREMBLAY",
+    "PrenomProfessionnel": "MARIE",
     "MontantPayeRAMQ": 46.6,
     "DateService": "2019-08-05T00:00:00",
     "DescriptionService": "Visite, examen ou consultation",
@@ -10,9 +10,9 @@
     "PrecisionServiceAnglais": "Family medicine activities aimed at prevention",
     "LieuGeographique": null,
     "LieuPhysique": {
-      "Nom": "LA CITE MEDICALE (SAINTE-FOY)",
-      "Adresse": "295-2600 BOUL LAURIER, QUEBEC, QC",
-      "CodePostal": "G1V4T3"
+      "Nom": "CLINIQUE EXEMPLE (TEST)",
+      "Adresse": "123 RUE EXEMPLE, QUEBEC, QC",
+      "CodePostal": "H0H0H0"
     }
   }
 ]
