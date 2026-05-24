@@ -11,3 +11,11 @@ nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+mac:
+  target:
+    target: dmg
+    arch: universal
+  category: public.app-category.utilities
+linux:
+  target: AppImage
+  category: Utility
