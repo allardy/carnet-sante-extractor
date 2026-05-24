@@ -4,6 +4,14 @@ Desktop app that pulls **everything** out of [Carnet Santé Québec](https://car
 
 No cloud, no API keys, no LLM in the loop. Everything stays on your machine.
 
+## Download & install
+
+Go to the [Releases](../../releases) page and download the installer for your system:
+
+- **Windows** — `.exe` (NSIS installer). Windows will warn you with a SmartScreen popup — click **More info → Run anyway** to proceed. The app is unsigned, not malicious.
+- **macOS** — `.dmg`. Gatekeeper will block it on first open — **right-click the DMG → Open** to bypass.
+- **Linux** — `.AppImage`. Make it executable (`chmod +x`) and run it directly.
+
 ## Run it (development)
 
 ```bash
@@ -23,8 +31,6 @@ pnpm package
 # macOS   → release/Carnet Sante Extractor-<version>.dmg        (universal: x64 + arm64)
 # Linux   → release/Carnet Sante Extractor-<version>.AppImage
 ```
-
-Builds are unsigned. On Windows, SmartScreen warns on first launch — **More info → Run anyway**. On macOS, Gatekeeper blocks unsigned apps — **right-click the DMG → Open** to bypass.
 
 **Releases** are built for all three platforms automatically by the GitHub Actions workflow whenever `package.json`'s `version` field changes on `master`:
 
