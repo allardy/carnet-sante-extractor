@@ -1,4 +1,5 @@
 import { type CleanProfile } from '../normalize/schemas.js'
+import { type Locale } from '../shared/i18n.js'
 import { fileExists, readJson, writeJson } from '../util/fs.js'
 
 export type ManifestEntry = {
@@ -12,16 +13,20 @@ export type ManifestEntry = {
 
 export type Manifest = {
   generatedAt: string
+  locale: Locale
   profile: CleanProfile | null
   domains: Record<string, { count: number; errors: string[] }>
   documents: ManifestEntry[]
+  files: string[]
 }
 
 export const emptyManifest = (): Manifest => ({
   generatedAt: new Date().toISOString(),
+  locale: 'fr',
   profile: null,
   domains: {},
   documents: [],
+  files: [],
 })
 
 export const loadManifest = async (path: string): Promise<Manifest> => {

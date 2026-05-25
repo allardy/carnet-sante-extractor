@@ -65,7 +65,7 @@ export const labsCollector: Collector = {
             id: descId,
             url: '', // not used — inlineData carries the bytes
             title: 'Prelevement',
-            type: 'laboratoire',
+            type: 'prelevements',
             date: dateField?.slice(0, 10),
             inlineData: pdf.base64,
           })

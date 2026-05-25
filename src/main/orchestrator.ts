@@ -5,6 +5,7 @@ import { collectors } from '../collectors/index.js'
 import { type DocumentDescriptor } from '../collectors/types.js'
 import { type Domain } from '../config.js'
 import { writeOutput } from '../output/writer.js'
+import { type Locale } from '../shared/i18n.js'
 import { ensureDir, writeBuffer, writeJson } from '../util/fs.js'
 
 import { authHeaders } from './auth.js'
@@ -27,6 +28,7 @@ export const runExtraction = async (
   session: Session,
   outputDir: string,
   rawDir: string,
+  locale: Locale,
   citizenIdFetcher: () => Promise<string>,
   onProgress: ProgressCallback,
 ): Promise<void> => {
@@ -177,6 +179,7 @@ export const runExtraction = async (
         documents: localDocs,
       },
       outputDir,
+      locale,
       logger,
     )
 

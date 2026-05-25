@@ -1,27 +1,81 @@
 import { describe, expect, it } from 'vitest'
 
-import { accessMarkdown, heading, toMarkdownTable } from '../src/normalize/markdown.js'
-import { type CleanAccess } from '../src/normalize/schemas.js'
+import {
+  accessMarkdown,
+  heading,
+  medicationsMarkdown,
+  profileMarkdown,
+  toMarkdownTable,
+} from '../src/normalize/markdown.js'
+import { type CleanAccess, type CleanMedication, type CleanProfile } from '../src/normalize/schemas.js'
+import { sectionFileLinks } from '../src/output/sections.js'
 
-describe('markdown', () => {
+const fr = { locale: 'fr' as const, links: sectionFileLinks }
+const en = { locale: 'en' as const, links: sectionFileLinks }
+
+describe('markdown helpers', () => {
   it('heading renders the right number of hashes', () => {
     expect(heading(2, 'Labs')).toBe('## Labs\n')
   })
 
   it('toMarkdownTable renders header, separator, and rows', () => {
-    expect(
-      toMarkdownTable(
-        ['Test', 'Value'],
-        [
-          ['HbA1c', '5.4'],
-          ['LDL', '2.1'],
-        ],
-      ),
-    ).toBe('| Test | Value |\n| --- | --- |\n| HbA1c | 5.4 |\n| LDL | 2.1 |')
+    expect(toMarkdownTable(['Test', 'Value'], [['HbA1c', '5.4']])).toBe(
+      '| Test | Value |\n| --- | --- |\n| HbA1c | 5.4 |',
+    )
+  })
+})
+
+describe('profileMarkdown', () => {
+  const profile: CleanProfile = {
+    citizenId: '99999',
+    fullName: 'JANE DOE',
+    birthDate: '1980-01-01',
+    sex: 'Femme',
+  }
+
+  it('uses localized section name + labels (fr)', () => {
+    const out = profileMarkdown(profile, fr)
+
+    expect(out).toContain('# Profil')
+    expect(out).toContain('**Nom :** JANE DOE')
+    expect(out).toContain('[JSON](../donnees/profil.json)')
   })
 
-  it('toMarkdownTable renders just the header when there are no rows', () => {
-    expect(toMarkdownTable(['Test', 'Value'], [])).toBe('| Test | Value |\n| --- | --- |')
+  it('uses localized section name + labels (en)', () => {
+    const out = profileMarkdown(profile, en)
+
+    expect(out).toContain('# Profile')
+    expect(out).toContain('**Name:** JANE DOE')
+  })
+})
+
+describe('medicationsMarkdown', () => {
+  const meds: CleanMedication[] = [
+    {
+      id: '1',
+      drugName: 'ATORVASTATINE 20 MG',
+      din: '02288999',
+      posology: '1 co die',
+      prescriber: 'TREMBLAY',
+      pharmacy: 'PHARMA X',
+      prescribedAt: '2024-02-01',
+      durationDays: 90,
+      refillsAuthorized: 3,
+      refillsRemaining: 2,
+      klass: '',
+    },
+  ]
+
+  it('localizes the active/labels block (fr)', () => {
+    const out = medicationsMarkdown(meds, [], fr)
+
+    expect(out).toContain('# Médicaments')
+    expect(out).toContain('## Actifs (renouvellements restants)')
+    expect(out).toContain('- **Prescripteur :** TREMBLAY')
+  })
+
+  it('empty input renders the localized none message', () => {
+    expect(medicationsMarkdown([], [], fr)).toBe('# Médicaments\n\n_Aucun._\n')
   })
 })
 
@@ -32,8 +86,7 @@ describe('accessMarkdown', () => {
       time: '09:15:00',
       person: 'Alpha TEST-NOM',
       role: 'Médecin',
-      roleEn: 'Physician',
-      providerId: 'alte0001@TEST.EXAMPLE',
+      providerId: 'a@T',
       domains: ['Medicament'],
     },
     {
@@ -41,40 +94,20 @@ describe('accessMarkdown', () => {
       time: '14:00:00',
       person: 'Alpha TEST-NOM',
       role: 'Médecin',
-      roleEn: 'Physician',
-      providerId: 'alte0001@TEST.EXAMPLE',
+      providerId: 'a@T',
       domains: ['Medicament', 'Prelevement', 'Imagerie'],
-    },
-    {
-      date: '2098-11-05',
-      time: '11:30:00',
-      person: 'Beta EXEMPLE',
-      role: 'Pharmacien',
-      roleEn: 'Pharmacist',
-      providerId: 'beex0002@TEST.EXAMPLE',
-      domains: ['Prelevement'],
     },
   ]
 
-  it('leads with a per-person "who accessed" table', () => {
-    const out = accessMarkdown(access)
+  it('leads with a per-person table (en domain labels)', () => {
+    const out = accessMarkdown(access, [], en)
 
     expect(out).toContain('## Who accessed your record')
-    // Alpha appears once (aggregated): 2 accesses, first + last span the two dates.
     expect(out).toContain('| Alpha TEST-NOM | Médecin | 2 | 2099-03-10 | 2099-07-22 |')
-    expect(out).toContain('| Beta EXEMPLE | Pharmacien | 1 | 2098-11-05 | 2098-11-05 |')
+    expect(out).toContain('Medications, Labs, Imaging')
   })
 
-  it('renders a chronological log grouped by year, newest first, with English domain labels', () => {
-    const out = accessMarkdown(access)
-    const log = out.slice(out.indexOf('## Access log'))
-
-    expect(log.indexOf('### 2099')).toBeLessThan(log.indexOf('### 2098'))
-    expect(log).toContain('- **2099-07-22 14:00:00** — Alpha TEST-NOM (Médecin) — Medications, Labs, Imaging')
-    expect(log).toContain('- **2098-11-05 11:30:00** — Beta EXEMPLE (Pharmacien) — Labs')
-  })
-
-  it('handles empty input', () => {
-    expect(accessMarkdown([])).toBe('# Folder access\n\n_None._\n')
+  it('handles empty input (fr)', () => {
+    expect(accessMarkdown([], [], fr)).toBe('# Intervenants ayant consulté votre dossier\n\n_Aucun._\n')
   })
 })

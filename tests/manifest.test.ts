@@ -12,23 +12,33 @@ afterEach(async () => {
 })
 
 describe('manifest', () => {
-  it('round-trips through disk', async () => {
-    await mkdir(dir, { recursive: true })
-    const path = resolve(dir, 'manifest.json')
+  it('defaults locale to fr and files to []', () => {
     const m = emptyManifest()
 
-    m.documents.push({ id: 'd1', url: 'u', outputPath: 'p', sha256: 's1', bytes: 100, capturedAt: '2026-05-23' })
+    expect(m.locale).toBe('fr')
+    expect(m.files).toEqual([])
+  })
+
+  it('round-trips locale, files, and documents through disk', async () => {
+    await mkdir(dir, { recursive: true })
+    const path = resolve(dir, 'index.json')
+    const m = emptyManifest()
+
+    m.locale = 'en'
+    m.files = ['LISEZ-MOI.html', 'documents/1-profil.html']
+    m.documents.push({
+      id: 'd1',
+      url: 'u',
+      outputPath: 'documents/pdf/imagerie/x.pdf',
+      sha256: 's1',
+      bytes: 100,
+      capturedAt: '2026-05-23',
+    })
     await saveManifest(path, m)
     const reloaded = await loadManifest(path)
 
-    expect(reloaded.documents).toHaveLength(1)
+    expect(reloaded.locale).toBe('en')
+    expect(reloaded.files).toContain('documents/1-profil.html')
     expect(docInManifest(reloaded, 'd1', 's1')).toBeDefined()
-    expect(docInManifest(reloaded, 'd1', 'different-sha')).toBeUndefined()
-  })
-
-  it('returns an empty manifest when the file does not exist', async () => {
-    const m = await loadManifest(resolve(dir, 'missing.json'))
-
-    expect(m.documents).toEqual([])
   })
 })

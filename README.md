@@ -1,6 +1,6 @@
 # Carnet Santé Extractor
 
-Desktop app that pulls **everything** out of [Carnet Santé Québec](https://carnetsante.gouv.qc.ca) — the Quebec government health portal that has no API and no bulk download. Open the app, log in by hand (MFA and all), and it takes over the live session: it captures the structured data the site renders + downloads every PDF, ready to be normalized into clean **Markdown + JSON** for an LLM later.
+Desktop app that pulls **everything** out of [Carnet Santé Québec](https://carnetsante.gouv.qc.ca) — the Quebec government health portal that has no API and no bulk download. Open the app, log in by hand (MFA and all), and it takes over the live session: it captures the structured data the site renders + downloads every PDF, then turns it into a single **self-contained HTML record** you can open and search, plus per-section **Markdown + JSON** for an LLM later.
 
 No cloud, no API keys, no LLM in the loop. Everything stays on your machine.
 
@@ -42,7 +42,7 @@ git push origin master
 
 ## What it extracts
 
-Each domain becomes a `data/<domain>.json` + a linked `markdown/<domain>.md`; imaging and labs also pull their report PDFs.
+Each domain becomes a `donnees/<slug>.json` + a linked `documents/<n>-<slug>.md`; imaging and labs also pull their report PDFs. Everything is also rolled into one searchable `dossier-complet.html`.
 
 | Domain               | What you get                                                                                                    |
 | -------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -58,31 +58,34 @@ Vaccines (a separate _Carnet de vaccination_ portal) are out of scope. Endpoint 
 
 ## Output
 
-Written to `~/carnet-sante-extractor/` — every run lives in its own ISO-timestamped subfolder so prior runs are preserved:
+Written to `~/carnet-sante-extractor/` — every run lives in its own ISO-timestamped subfolder so prior runs are preserved. **HTML is emitted only as `dossier-complet.html`**; everything else is Markdown or JSON.
 
 ```
 ~/carnet-sante-extractor/
   <ISO-timestamp>/
-    raw/         full server payloads for the run
-      responses/   captured JSON (Capture flow)
-      data/        per-domain raw JSON (Extract flow)
-      documents/   downloaded PDFs (raw filenames by report id)
-      log.jsonl    one-event-per-line for tooling
-      log.txt      same events, human-readable
-    output/      clean deliverables for the run
-      data/        normalized JSON (or raw fallback if a schema misses)
-      markdown/    per-domain markdown rollups, linked to PDFs + raw JSON
-      documents/   renamed PDFs organized by type (imagerie/, laboratoire/)
-      manifest.json
-      summary.md   top-level health record summary
+    dossier-complet.html   ← open this: your whole record on one page —
+                             sidebar TOC, live search, collapsible sections,
+                             light/dark, prints to a clean PDF. Self-contained
+                             (no internet, no external files).
+    LISEZ-MOI.md           plain-text index of the folder
+    documents/             the readable record, one Markdown file per section
+      1-profil.md  2-medicaments.md  …  7-acces.md
+      pdf/
+        imagerie/            downloaded imaging report PDFs
+        prelevements/        downloaded lab report PDFs
+    donnees/               structured data for power users / tools
+      profil.json  medicaments.json  …  acces.json
+      index.json            machine index — counts, checksums, file map, locale
+    capture-brute/         untouched raw capture, for debugging only
+      data/*.json  documents/<id>.pdf  log.jsonl  log.txt
 ```
 
-The toolbar's **Open output** button lands you in the most recent run's folder automatically.
+Headings and labels follow the app's language (default French); the data values stay as the government returns them. The toolbar's **Open output** button lands you in the most recent run's folder automatically.
 
 ## Privacy
 
-`raw/`, `output/`, and the Electron session partition (live cookies) live under your user profile and must never be committed. The repo ships only code + synthetic/redacted fixtures.
+Everything under `~/carnet-sante-extractor/` (your real record + the raw `capture-brute/` payloads) and the Electron session partition (live cookies) lives under your user profile and must never be committed. The repo ships only code + synthetic/redacted fixtures.
 
 ## Status
 
-Implemented end-to-end: log in, capture, and extract every domain above into clean Markdown + JSON with organized PDFs.
+Implemented end-to-end: log in, capture, and extract every domain above into a single searchable HTML record + clean per-section Markdown/JSON with organized PDFs.
