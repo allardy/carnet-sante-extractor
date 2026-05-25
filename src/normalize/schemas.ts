@@ -78,46 +78,53 @@ export type CleanProfile = {
   familyDoctorStatus?: string
 }
 
+// Everything optional. Real records carry the odd ordonnance with a missing drug block, no prescriber,
+// or no DernierService/Services keys at all (seen on other users' data). A single strict field would
+// throw the whole `.parse()` and drop the entire medication list to a raw-JSON fallback — the
+// normalizer fills sensible defaults instead, so partial entries survive rather than sinking the list.
 const posologieSchema = z.object({
-  Description: z.string(),
+  Description: z.string().optional(),
   DIN: z.string().nullable().optional(),
   Nom: z.string().nullable().optional(),
   NomAnglais: z.string().nullable().optional(),
 })
 
 const medicamentSchema = z.object({
-  DIN: z.string(),
-  Nom: z.string(),
-  NomAnglais: z.string(),
-  LibelleClasse: z.string(),
-  LibelleClasseAnglais: z.string(),
-  Posologies: z.array(posologieSchema),
+  DIN: z.string().optional(),
+  Nom: z.string().optional(),
+  NomAnglais: z.string().optional(),
+  LibelleClasse: z.string().optional(),
+  LibelleClasseAnglais: z.string().optional(),
+  Posologies: z.array(posologieSchema).optional(),
 })
 
-export const ordonnanceSchema = z.object({
-  Type: z.string(),
-  Id: z.string(),
-  IdOrdonnance: z.string(),
-  Date: isoDate,
-  Duree: z.number(),
-  NomPrescripteur: z.string(),
-  PrenomPrescripteur: z.string(),
-  Pharmacie: z.string(),
-  // Compounded medications return null for these fields
-  NombreDelivrancesAutorisees: z.number().nullable(),
-  NombreDelivrancesRestantes: z.number().nullable(),
-  MedicamentPrescrit: medicamentSchema,
-  DernierService: z
-    .object({
-      Id: z.string(),
-      Date: isoDate,
-      Duree: z.number(),
-      NomPharmacie: z.string(),
-      Medicaments: medicamentSchema,
-    })
-    .nullable(),
-  Services: z.array(z.unknown()).nullable(),
-})
+export const ordonnanceSchema = z
+  .object({
+    Type: z.string().optional(),
+    Id: z.string().optional(),
+    IdOrdonnance: z.string().optional(),
+    Date: isoDate.optional(),
+    Duree: z.number().optional(),
+    NomPrescripteur: z.string().optional(),
+    PrenomPrescripteur: z.string().optional(),
+    Pharmacie: z.string().optional(),
+    // Compounded medications return null for these fields
+    NombreDelivrancesAutorisees: z.number().nullable().optional(),
+    NombreDelivrancesRestantes: z.number().nullable().optional(),
+    MedicamentPrescrit: medicamentSchema.optional(),
+    DernierService: z
+      .object({
+        Id: z.string().optional(),
+        Date: isoDate.optional(),
+        Duree: z.number().optional(),
+        NomPharmacie: z.string().optional(),
+        Medicaments: medicamentSchema.optional(),
+      })
+      .nullable()
+      .optional(),
+    Services: z.array(z.unknown()).nullable().optional(),
+  })
+  .passthrough()
 
 export const medicationsListSchema = z.array(ordonnanceSchema)
 
@@ -129,7 +136,7 @@ export type CleanMedication = {
   prescriber: string
   pharmacy: string
   prescribedAt: string
-  durationDays: number
+  durationDays: number | null
   refillsAuthorized: number | null
   refillsRemaining: number | null
   lastDispensedAt?: string

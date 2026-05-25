@@ -23,7 +23,73 @@ describe('normalizeMedications', () => {
     expect(normalizeMedications([])).toEqual([])
   })
 
-  it('throws on unexpected shape', () => {
-    expect(() => normalizeMedications([{ bogus: true }])).toThrow()
+  it('keeps a medication that omits DernierService and Services entirely', () => {
+    const result = normalizeMedications([
+      {
+        Type: 'OrdonnanceAvecService',
+        Id: 'NOSVC',
+        IdOrdonnance: 'NOSVC',
+        Date: '2026-03-01T00:00:00-05:00',
+        Duree: 30,
+        NomPrescripteur: 'ROY',
+        PrenomPrescripteur: 'LUC',
+        Pharmacie: 'PHARMA',
+        NombreDelivrancesAutorisees: 1,
+        NombreDelivrancesRestantes: 1,
+        MedicamentPrescrit: {
+          DIN: '00000009',
+          Nom: 'DRUG NINE',
+          NomAnglais: 'DRUG NINE',
+          LibelleClasse: 'klass',
+          LibelleClasseAnglais: 'klass',
+          Posologies: [{ Description: 'once daily' }],
+        },
+        // no DernierService, no Services keys at all
+      },
+    ])
+
+    expect(result).toHaveLength(1)
+    expect(result[0]?.drugName).toBe('DRUG NINE')
+    expect(result[0]?.lastDispensedAt).toBeUndefined()
+  })
+
+  it('keeps the whole list when one entry is missing nearly every field', () => {
+    const result = normalizeMedications([
+      {
+        Type: 'OrdonnanceAvecService',
+        Id: 'GOOD',
+        IdOrdonnance: 'GOOD',
+        Date: '2026-03-01T00:00:00-05:00',
+        Duree: 30,
+        NomPrescripteur: 'ROY',
+        PrenomPrescripteur: 'LUC',
+        Pharmacie: 'PHARMA',
+        NombreDelivrancesAutorisees: 1,
+        NombreDelivrancesRestantes: 1,
+        MedicamentPrescrit: {
+          DIN: '00000009',
+          Nom: 'DRUG NINE',
+          NomAnglais: 'DRUG NINE',
+          LibelleClasse: 'klass',
+          LibelleClasseAnglais: 'klass',
+          Posologies: [{ Description: 'once daily' }],
+        },
+        DernierService: null,
+        Services: null,
+      },
+      // Degraded entry: server returned only Type + Id (seen in the wild on another user's record)
+      { Type: 'OrdonnanceSansService', Id: 'BARE' },
+    ])
+
+    expect(result).toHaveLength(2)
+    expect(result[1]?.id).toBe('BARE')
+    expect(result[1]?.drugName).toBe('')
+    expect(result[1]?.prescriber).toBe('')
+    expect(result[1]?.durationDays).toBeNull()
+    expect(result[1]?.refillsRemaining).toBeNull()
+  })
+
+  it('throws only when the payload is not a medications array', () => {
+    expect(() => normalizeMedications({ not: 'an array' })).toThrow()
   })
 })

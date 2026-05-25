@@ -124,14 +124,36 @@ export const medicationsMarkdown = (meds: CleanMedication[], _docs: DocLink[], c
   const completed = meds.filter((m) => (m.refillsRemaining ?? 0) <= 0)
   const lines = [`# ${sectionName('medications', ctx.locale)}`, '', headerNote('medications', meds.length, ctx), '']
 
+  // Fields can be blank/null on degraded entries (the server occasionally returns an ordonnance with
+  // no drug block); skip those bullets rather than emitting "**Prescriber:** " or "(null days)".
   const renderMed = (m: CleanMedication): void => {
-    lines.push(`### ${m.drugName}`, '')
-    lines.push(`- **${d.din}${s}** ${m.din}`)
-    lines.push(`- **${d.posology}${s}** ${m.posology}`)
-    lines.push(`- **${d.prescriber}${s}** ${m.prescriber}`)
-    lines.push(`- **${d.pharmacy}${s}** ${m.pharmacy}`)
-    lines.push(`- **${d.prescribed}${s}** ${m.prescribedAt} (${m.durationDays} ${d.days})`)
-    lines.push(`- **${d.refills}${s}** ${m.refillsRemaining ?? 'N/A'}/${m.refillsAuthorized ?? 'N/A'} ${d.remaining}`)
+    lines.push(`### ${m.drugName || d.unknownDrug}`, '')
+
+    if (m.din) {
+      lines.push(`- **${d.din}${s}** ${m.din}`)
+    }
+
+    if (m.posology) {
+      lines.push(`- **${d.posology}${s}** ${m.posology}`)
+    }
+
+    if (m.prescriber) {
+      lines.push(`- **${d.prescriber}${s}** ${m.prescriber}`)
+    }
+
+    if (m.pharmacy) {
+      lines.push(`- **${d.pharmacy}${s}** ${m.pharmacy}`)
+    }
+
+    if (m.prescribedAt) {
+      const duration = m.durationDays != null ? ` (${m.durationDays} ${d.days})` : ''
+
+      lines.push(`- **${d.prescribed}${s}** ${m.prescribedAt}${duration}`)
+    }
+
+    if (m.refillsAuthorized != null || m.refillsRemaining != null) {
+      lines.push(`- **${d.refills}${s}** ${m.refillsRemaining ?? 'N/A'}/${m.refillsAuthorized ?? 'N/A'} ${d.remaining}`)
+    }
 
     if (m.lastDispensedAt) {
       lines.push(`- **${d.lastDispensed}${s}** ${m.lastDispensedAt}`)
