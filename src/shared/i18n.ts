@@ -64,6 +64,7 @@ export type DocStrings = {
   // medications
   activeRefills: string
   completed: string
+  unknownDrug: string
   din: string
   posology: string
   prescriber: string
@@ -130,6 +131,7 @@ export const docStrings: Record<Locale, DocStrings> = {
     familyDoctor: 'Médecin de famille',
     activeRefills: 'Actifs (renouvellements restants)',
     completed: 'Terminés',
+    unknownDrug: 'Médicament (détails non disponibles)',
     din: 'DIN',
     posology: 'Posologie',
     prescriber: 'Prescripteur',
@@ -190,6 +192,7 @@ export const docStrings: Record<Locale, DocStrings> = {
     familyDoctor: 'Family doctor',
     activeRefills: 'Active (refills remaining)',
     completed: 'Completed',
+    unknownDrug: 'Medication (details unavailable)',
     din: 'DIN',
     posology: 'Posology',
     prescriber: 'Prescriber',

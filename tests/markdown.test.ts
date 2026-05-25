@@ -77,6 +77,31 @@ describe('medicationsMarkdown', () => {
   it('empty input renders the localized none message', () => {
     expect(medicationsMarkdown([], [], fr)).toBe('# Médicaments\n\n_Aucun._\n')
   })
+
+  it('renders a degraded entry without blank bullets or an empty heading', () => {
+    const degraded: CleanMedication[] = [
+      {
+        id: 'BARE',
+        drugName: '',
+        din: '',
+        posology: '',
+        prescriber: '',
+        pharmacy: '',
+        prescribedAt: '',
+        durationDays: null,
+        refillsAuthorized: null,
+        refillsRemaining: null,
+        klass: '',
+      },
+    ]
+    const out = medicationsMarkdown(degraded, [], en)
+
+    expect(out).toContain('### Medication (details unavailable)')
+    expect(out).not.toContain('### \n')
+    expect(out).not.toContain('**Prescriber:** \n')
+    expect(out).not.toContain('undefined')
+    expect(out).not.toContain('N/A/N/A')
+  })
 })
 
 describe('accessMarkdown', () => {
