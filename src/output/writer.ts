@@ -19,11 +19,15 @@ import {
 import { normalizeMedicalServices } from '../normalize/medical-services.js'
 import { normalizeMedications } from '../normalize/medications.js'
 import { normalizeProfile, type ProfileRaw } from '../normalize/profile.js'
+import { type CleanProfile } from '../normalize/schemas.js'
+import { docStrings, type Locale } from '../shared/i18n.js'
 import { ensureDir, sha256, writeJson, writeText } from '../util/fs.js'
 
+import { type DossierSection, dossierHtml } from './dossier.js'
 import { type Manifest, type ManifestEntry, saveManifest } from './manifest.js'
+import { readmeMarkdown } from './readme.js'
 import { renameDocument } from './rename.js'
-import { summaryMarkdown } from './summary.js'
+import { allSections, type RenderCtx, runRootLinks, type SectionKey, sectionFileLinks } from './sections.js'
 
 export type OrchestratorOutput = {
   profile: unknown
@@ -38,9 +42,14 @@ export type OrchestratorOutput = {
 
 type DocLink = { date: string; outputPath: string }
 
-// Per-domain failures during normalize/markdown are non-fatal: log them, record the error
-// against the manifest's domain block, and keep going so the user still gets every other
-// domain's clean output. The raw data is already on disk regardless.
+type SectionSpec = {
+  key: SectionKey
+  raw: () => unknown
+  normalize: (raw: unknown) => unknown
+  markdown: (clean: never, docs: DocLink[], ctx: RenderCtx) => string
+  count: (clean: never) => number
+}
+
 const tryStep = async <T>(
   logger: Logger | undefined,
   domain: string,
@@ -62,171 +71,180 @@ const tryStep = async <T>(
   }
 }
 
-export const writeOutput = async (raw: OrchestratorOutput, outputDir: string, logger?: Logger): Promise<Manifest> => {
-  const dataDir = resolve(outputDir, 'data')
-  const mdDir = resolve(outputDir, 'markdown')
-  const docsDir = resolve(outputDir, 'documents')
+export const writeOutput = async (
+  raw: OrchestratorOutput,
+  runDir: string,
+  locale: Locale,
+  logger?: Logger,
+): Promise<Manifest> => {
+  const docsDir = resolve(runDir, 'documents')
+  const dataDir = resolve(runDir, 'donnees')
 
-  await Promise.all([ensureDir(dataDir), ensureDir(mdDir), ensureDir(docsDir)])
+  await Promise.all([ensureDir(docsDir), ensureDir(dataDir)])
 
-  const domains: Manifest['domains'] = {}
-  let profileOut: ReturnType<typeof normalizeProfile> | null = null
-
-  // Copy PDFs and build manifest entries FIRST so docLinks is available for markdown generators
+  // 1. Copy PDFs first so docLinks is available to the section markdown generators.
   const taken = new Set<string>()
   const entries: ManifestEntry[] = []
+  const files: string[] = []
 
-  for (const d of raw.documents) {
-    const outputPath = renameDocument(d.descriptor, taken)
-    const dest = resolve(docsDir, outputPath)
+  for (const dDoc of raw.documents) {
+    const relToDocuments = renameDocument(dDoc.descriptor, taken) // e.g. 'pdf/imagerie/2024_X.pdf'
+    const runRelPath = `documents/${relToDocuments}`
+    const dest = resolve(docsDir, relToDocuments)
 
     try {
       await ensureDir(resolve(dest, '..'))
-      await copyFile(d.localPath, dest)
+      await copyFile(dDoc.localPath, dest)
       const buf = await readFile(dest)
 
       entries.push({
-        id: d.descriptor.id,
-        url: d.descriptor.url,
-        outputPath: `documents/${outputPath}`,
+        id: dDoc.descriptor.id,
+        url: dDoc.descriptor.url,
+        outputPath: runRelPath,
         sha256: sha256(buf),
         bytes: buf.length,
-        capturedAt: d.descriptor.date ?? '',
+        capturedAt: dDoc.descriptor.date ?? '',
       })
-      logger?.log({ phase: 'output', status: 'ok', message: `documents/${outputPath}`, bytes: buf.length })
+      files.push(runRelPath)
+      logger?.log({ phase: 'output', status: 'ok', message: runRelPath, bytes: buf.length })
     } catch (err) {
       logger?.log({
         phase: 'output',
         status: 'error',
-        message: `copy ${d.descriptor.id}`,
+        message: `copy ${dDoc.descriptor.id}`,
         error: (err as Error).message,
       })
     }
   }
 
-  // Build the doc-link index from copied entries (date comes from the descriptor's date field)
-  const docLinks: DocLink[] = entries.map((e) => ({ date: e.capturedAt, outputPath: e.outputPath }))
+  // docLinks for the standalone section files (in documents/) carry the documents-relative path.
+  const docLinks: DocLink[] = entries.map((e) => ({
+    date: e.capturedAt,
+    outputPath: e.outputPath.replace(/^documents\//, ''),
+  }))
 
-  const writePair = async (
-    domain: string,
-    file: string,
-    rawPayload: unknown,
-    normalize: () => unknown,
-    markdown: (clean: never, docs: DocLink[]) => string,
-    count: (clean: never) => number,
-  ): Promise<void> => {
-    const n = await tryStep(logger, domain, 'normalize', () => normalize())
+  const specs: SectionSpec[] = [
+    {
+      key: 'profile',
+      raw: () => raw.profile,
+      normalize: (r) => normalizeProfile(r as ProfileRaw),
+      markdown: (c, _d, ctx) => profileMarkdown(c as CleanProfile, ctx),
+      count: () => 1,
+    },
+    {
+      key: 'medications',
+      raw: () => raw.medications,
+      normalize: (r) => normalizeMedications(r),
+      markdown: (c, d, ctx) => medicationsMarkdown(c, d, ctx),
+      count: (c) => (c as unknown[]).length,
+    },
+    {
+      key: 'appointments',
+      raw: () => raw.appointments,
+      normalize: (r) => normalizeAppointments(r),
+      markdown: (c, d, ctx) => appointmentsMarkdown(c, d, ctx),
+      count: (c) => (c as unknown[]).length,
+    },
+    {
+      key: 'imaging',
+      raw: () => raw.imaging,
+      normalize: (r) => {
+        const i = r as { list: unknown; details: Record<string, unknown> } | null
+
+        return normalizeImaging(i?.list ?? [], i?.details ?? {})
+      },
+      markdown: (c, d, ctx) => imagingMarkdown(c, d, ctx),
+      count: (c) => (c as unknown[]).length,
+    },
+    {
+      key: 'labs',
+      raw: () => raw.labs,
+      normalize: (r) => {
+        const l = r as { list: unknown; rapports: Record<string, unknown>; results: Record<string, unknown> } | null
+
+        return normalizeLabs({ list: l?.list ?? [], rapports: l?.rapports ?? {}, results: l?.results ?? {} })
+      },
+      markdown: (c, d, ctx) => labsMarkdown(c, d, ctx),
+      count: (c) => (c as unknown[]).length,
+    },
+    {
+      key: 'medical-services',
+      raw: () => raw.medicalServices,
+      normalize: (r) => normalizeMedicalServices(r),
+      markdown: (c, d, ctx) => medicalServicesMarkdown(c, d, ctx),
+      count: (c) => (c as unknown[]).length,
+    },
+    {
+      key: 'access',
+      raw: () => raw.access,
+      normalize: (r) => normalizeAccess(r),
+      markdown: (c, d, ctx) => accessMarkdown(c, d, ctx),
+      count: (c) => (c as unknown[]).length,
+    },
+  ]
+
+  const fileCtx: RenderCtx = { locale, links: sectionFileLinks }
+  const rootCtx: RenderCtx = { locale, links: runRootLinks }
+  const domains: Manifest['domains'] = {}
+  let profileOut: CleanProfile | null = null
+  const bodiesForDossier: DossierSection[] = []
+  const sectionByKey = new Map(allSections().map((s) => [s.key, s]))
+
+  for (const spec of specs) {
+    const def = sectionByKey.get(spec.key)!
+    const slug = def.slug
+    const n = await tryStep(logger, spec.key, 'normalize', () => spec.normalize(spec.raw()))
 
     if (!n.ok) {
-      domains[domain] = { count: 0, errors: [n.error] }
-      // Fallback: write the raw payload so the user always has *something* in output/data/.
-      // Better a usable raw blob than a missing file when the best-guess schema misses.
-      await tryStep(logger, domain, `write data/${file}.json (raw fallback)`, () =>
-        writeJson(resolve(dataDir, `${file}.json`), rawPayload),
+      domains[spec.key] = { count: 0, errors: [n.error] }
+      // Fallback: always leave a usable JSON blob even when the best-guess schema misses.
+      await tryStep(logger, spec.key, `write donnees/${slug}.json (raw fallback)`, () =>
+        writeJson(resolve(dataDir, `${slug}.json`), spec.raw()),
       )
-
-      return
+      files.push(`donnees/${slug}.json`)
+      // Still show the section in the dossier so nothing silently goes missing.
+      bodiesForDossier.push({ def, body: `_${docStrings[locale].sectionError}_\n` })
+      continue
     }
 
     const clean = n.value as never
 
-    await tryStep(logger, domain, `write data/${file}.json`, () => writeJson(resolve(dataDir, `${file}.json`), clean))
-    await tryStep(logger, domain, `write markdown/${file}.md`, () =>
-      writeText(resolve(mdDir, `${file}.md`), markdown(clean, docLinks)),
+    if (spec.key === 'profile') {
+      profileOut = clean as CleanProfile
+    }
+
+    await tryStep(logger, spec.key, `write donnees/${slug}.json`, () =>
+      writeJson(resolve(dataDir, `${slug}.json`), clean),
     )
 
-    domains[domain] = { count: count(clean), errors: [] }
+    // Per-section Markdown is for LLMs + file browsing; the human-readable HTML is the single dossier.
+    await tryStep(logger, spec.key, `write documents/${def.order}-${slug}.md`, () =>
+      writeText(resolve(docsDir, `${def.order}-${slug}.md`), spec.markdown(clean, docLinks, fileCtx)),
+    )
+
+    files.push(`donnees/${slug}.json`, `documents/${def.order}-${slug}.md`)
+    domains[spec.key] = { count: spec.count(clean), errors: [] }
+    // The dossier sits at the run root, so its section bodies use run-root-relative asset links.
+    bodiesForDossier.push({ def, body: spec.markdown(clean, docLinks, rootCtx) })
   }
 
-  // Profile is special — needed for the manifest header. Track separately.
-  const profileResult = await tryStep(logger, 'profile', 'normalize', () => normalizeProfile(raw.profile as ProfileRaw))
-
-  if (profileResult.ok) {
-    profileOut = profileResult.value
-    await tryStep(logger, 'profile', 'write data/profile.json', () =>
-      writeJson(resolve(dataDir, 'profile.json'), profileOut),
-    )
-    await tryStep(logger, 'profile', 'write markdown/profile.md', () =>
-      writeText(resolve(mdDir, 'profile.md'), profileMarkdown(profileOut!)),
-    )
-    domains['profile'] = { count: 1, errors: [] }
-  } else {
-    domains['profile'] = { count: 0, errors: [profileResult.error] }
-    await tryStep(logger, 'profile', 'write data/profile.json (raw fallback)', () =>
-      writeJson(resolve(dataDir, 'profile.json'), raw.profile),
-    )
-  }
-
-  await writePair(
-    'medications',
-    'medications',
-    raw.medications,
-    () => normalizeMedications(raw.medications),
-    (c, docs) => medicationsMarkdown(c, docs),
-    (c) => (c as unknown[]).length,
-  )
-  await writePair(
-    'appointments',
-    'appointments',
-    raw.appointments,
-    () => normalizeAppointments(raw.appointments),
-    (c, docs) => appointmentsMarkdown(c, docs),
-    (c) => (c as unknown[]).length,
-  )
-  await writePair(
-    'medical-services',
-    'medical-services',
-    raw.medicalServices,
-    () => normalizeMedicalServices(raw.medicalServices),
-    (c, docs) => medicalServicesMarkdown(c, docs),
-    (c) => (c as unknown[]).length,
-  )
-  await writePair(
-    'imaging',
-    'imaging',
-    raw.imaging,
-    () => {
-      const i = raw.imaging as { list: unknown; details: Record<string, unknown> } | null
-
-      return normalizeImaging(i?.list ?? [], i?.details ?? {})
-    },
-    (c, docs) => imagingMarkdown(c, docs),
-    (c) => (c as unknown[]).length,
-  )
-  await writePair(
-    'labs',
-    'labs',
-    raw.labs,
-    () => {
-      const l = raw.labs as {
-        list: unknown
-        rapports: Record<string, unknown>
-        results: Record<string, unknown>
-      } | null
-
-      return normalizeLabs({ list: l?.list ?? [], rapports: l?.rapports ?? {}, results: l?.results ?? {} })
-    },
-    (c, docs) => labsMarkdown(c, docs),
-    (c) => (c as unknown[]).length,
-  )
-  await writePair(
-    'access',
-    'access',
-    raw.access,
-    () => normalizeAccess(raw.access),
-    (c) => accessMarkdown(c),
-    (c) => (c as unknown[]).length,
-  )
-
+  // Machine index first — both the dossier and the README read their counts from the manifest.
   const manifest: Manifest = {
     generatedAt: new Date().toISOString(),
+    locale,
     profile: profileOut,
     domains,
     documents: entries,
+    files: [...files, 'dossier-complet.html', 'LISEZ-MOI.md', 'donnees/index.json'],
   }
 
-  await saveManifest(resolve(outputDir, 'manifest.json'), manifest)
-  await writeText(resolve(outputDir, 'summary.md'), summaryMarkdown(manifest))
+  await saveManifest(resolve(dataDir, 'index.json'), manifest)
+
+  // The single, self-contained, human-facing HTML record.
+  await writeText(resolve(runDir, 'dossier-complet.html'), dossierHtml(bodiesForDossier, manifest))
+
+  // Markdown index (for humans browsing files + for LLMs).
+  await writeText(resolve(runDir, 'LISEZ-MOI.md'), readmeMarkdown(manifest, locale))
 
   return manifest
 }

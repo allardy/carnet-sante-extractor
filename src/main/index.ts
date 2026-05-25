@@ -46,6 +46,7 @@ const mostRecentRunDir = async (parent: string): Promise<string> => {
 let win: AppWindow | undefined
 let capture: CaptureHandle | undefined
 let starting = false
+let currentLocale: Locale = 'fr'
 
 const detectLocale = async (siteContents: WebContents): Promise<void> => {
   for (let i = 0; i < 5; i++) {
@@ -96,7 +97,7 @@ const startCaptureRun = async (): Promise<void> => {
 
   try {
     const runId = localRunId()
-    const runDir = resolve(config.baseDir, runId, 'raw')
+    const runDir = resolve(config.baseDir, runId, 'capture-brute')
 
     capture = await startCapture(win.site.webContents, runDir, (counts) =>
       send(IPC.captureProgress, { phase: 'capturing', ...counts } satisfies ProgressPayload),
@@ -177,16 +178,17 @@ const wireIpc = (): void => {
 
     const sess = session.fromPartition(config.partitionName)
     const runId = localRunId()
-    const runRawDir = resolve(config.baseDir, runId, 'raw')
-    const runOutputDir = resolve(config.baseDir, runId, 'output')
+    const runDir = resolve(config.baseDir, runId)
+    const runRawDir = resolve(runDir, 'capture-brute')
 
     try {
       await seedAuthFromSessionStorage(win.site.webContents)
       await runExtraction(
         win.site.webContents,
         sess,
-        runOutputDir,
+        runDir,
         runRawDir,
+        currentLocale,
         async () => {
           const url = `${CARNET_API_BASE}/Citoyens`
           const r = await sess.fetch(url, { headers: authHeaders(url) })
@@ -225,7 +227,13 @@ const wireIpc = (): void => {
   })
 
   // Forward locale and auth-state reports from the site preload to the toolbar.
-  ipcMain.on(IPC.siteLocale, (_event, locale: unknown) => send(IPC.siteLocale, locale))
+  ipcMain.on(IPC.siteLocale, (_event, locale: unknown) => {
+    if (locale === 'fr' || locale === 'en') {
+      currentLocale = locale
+    }
+
+    send(IPC.siteLocale, locale)
+  })
   ipcMain.on(IPC.siteAuthState, (_event, loggedIn: unknown) => send(IPC.siteAuthState, loggedIn))
 }
 
