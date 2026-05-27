@@ -6,11 +6,9 @@ import { collectors } from '../collectors/index.js'
 import { config } from '../config.js'
 import { ACCEPT_LANGUAGE, BROWSER_USER_AGENT, CARNET_API_BASE } from '../constants.js'
 import { type Locale } from '../shared/i18n.js'
-import { IPC, type ExtractProgressPayload, type ProgressPayload } from '../shared/ipc.js'
+import { IPC, type ExtractProgressPayload } from '../shared/ipc.js'
 
 import { authHeaders, installAuthCapture, seedAuthFromSessionStorage } from './auth.js'
-import { type CaptureHandle, startCapture } from './capture.js'
-import { downloadCaptured } from './downloader.js'
 import { runExtraction } from './orchestrator.js'
 import { type AppWindow, createWindow, type RendererEntry } from './window.js'
 
@@ -44,8 +42,6 @@ const mostRecentRunDir = async (parent: string): Promise<string> => {
 }
 
 let win: AppWindow | undefined
-let capture: CaptureHandle | undefined
-let starting = false
 let currentLocale: Locale = 'fr'
 
 const detectLocale = async (siteContents: WebContents): Promise<void> => {
@@ -86,58 +82,8 @@ const rendererEntry = (): RendererEntry => {
   return { file: join(import.meta.dirname, '../renderer/index.html') }
 }
 
-// Capture/open are exposed both as IPC handlers (legacy toolbar buttons) and as native
-// debug-menu actions, so the logic lives in plain functions both call.
-const startCaptureRun = async (): Promise<void> => {
-  if (!win || capture || starting) {
-    return
-  }
-
-  starting = true
-
-  try {
-    const runId = localRunId()
-    const runDir = resolve(config.baseDir, runId, 'capture-brute')
-
-    capture = await startCapture(win.site.webContents, runDir, (counts) =>
-      send(IPC.captureProgress, { phase: 'capturing', ...counts } satisfies ProgressPayload),
-    )
-    send(IPC.captureProgress, {
-      phase: 'capturing',
-      json: 0,
-      binaries: 0,
-    } satisfies ProgressPayload)
-  } finally {
-    starting = false
-  }
-}
-
-const stopCaptureRun = async (): Promise<void> => {
-  if (!capture) {
-    return
-  }
-
-  const { store, runDir } = capture
-
-  await capture.stop()
-  capture = undefined
-  send(IPC.captureProgress, {
-    phase: 'downloading',
-    json: store.json.length,
-    binaries: store.binaries.length,
-  } satisfies ProgressPayload)
-
-  const ses = session.fromPartition(config.partitionName)
-  const downloaded = await downloadCaptured(ses, store.binaries, resolve(runDir, 'documents'))
-
-  send(IPC.captureProgress, {
-    phase: 'done',
-    json: store.json.length,
-    binaries: store.binaries.length,
-    downloaded,
-  } satisfies ProgressPayload)
-}
-
+// openOutput is reached both from the toolbar's IPC handler and the native debug menu, so the
+// logic lives in a plain function both call.
 const openOutputFolder = async (): Promise<void> => {
   const target = await mostRecentRunDir(config.baseDir).catch(() => config.baseDir)
 
@@ -145,8 +91,6 @@ const openOutputFolder = async (): Promise<void> => {
 }
 
 const wireIpc = (): void => {
-  ipcMain.handle(IPC.captureStart, () => startCaptureRun())
-  ipcMain.handle(IPC.captureStop, () => stopCaptureRun())
   ipcMain.handle(IPC.openOutput, () => openOutputFolder())
 
   // The toolbar's ⚙ button asks main to pop a native menu. A native popup isn't clipped by the
@@ -159,9 +103,6 @@ const wireIpc = (): void => {
     const template: MenuItemConstructorOptions[] = [
       { label: 'Debug tools', enabled: false },
       { type: 'separator' },
-      capture
-        ? { label: 'Stop capture & save', click: () => void stopCaptureRun() }
-        : { label: 'Start capture', click: () => void startCaptureRun() },
       { label: 'Open output folder', click: () => void openOutputFolder() },
       { type: 'separator' },
       { label: 'DevTools — site', click: () => win?.site.webContents.toggleDevTools() },

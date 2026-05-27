@@ -112,13 +112,3 @@ window.api.onExtractProgress((p) => {
       break
   }
 })
-
-window.api.onProgress((p) => {
-  const tail = p.downloaded === undefined ? '' : `, ${p.downloaded} downloaded`
-
-  if (p.phase === 'done') {
-    setStep(s().captureDoneStep(p.json, p.binaries, tail), 'done')
-  } else {
-    setStep(s().captureRunningStep(p.json, p.binaries, tail))
-  }
-})
