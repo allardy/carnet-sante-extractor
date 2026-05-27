@@ -14,8 +14,6 @@ type S = {
   doneStep: string
   collectingStep: (domain: string, done: number, total: number, sub: string) => string
   errorStep: (err: string) => string
-  captureRunningStep: (json: number, pdfs: number, tail: string) => string
-  captureDoneStep: (json: number, pdfs: number, tail: string) => string
   domainName: (key: string) => string
 }
 
@@ -253,8 +251,6 @@ export const strings: Record<Locale, S> = {
     doneStep: 'Terminé — votre dossier de santé est prêt. Ouvrez le dossier de sortie.',
     collectingStep: (domain, done, total, sub) => `Collecte — ${domain} (${done}/${total})${sub}`,
     errorStep: (err) => `Erreur : ${err}`,
-    captureRunningStep: (json, pdfs, tail) => `Capture — ${json} JSON, ${pdfs} PDF${tail}…`,
-    captureDoneStep: (json, pdfs, tail) => `Capture sauvegardée — ${json} JSON, ${pdfs} PDF${tail}.`,
     domainName: (key) => domainNames.fr[key] ?? prettyFallback(key),
   },
   en: {
@@ -271,8 +267,6 @@ export const strings: Record<Locale, S> = {
     doneStep: 'Done — your health record is ready. Open the output folder.',
     collectingStep: (domain, done, total, sub) => `Collecting — ${domain} (${done}/${total})${sub}`,
     errorStep: (err) => `Error: ${err}`,
-    captureRunningStep: (json, pdfs, tail) => `Capturing — ${json} JSON, ${pdfs} PDF${tail}…`,
-    captureDoneStep: (json, pdfs, tail) => `Capture saved — ${json} JSON, ${pdfs} PDF${tail}.`,
     domainName: (key) => domainNames.en[key] ?? prettyFallback(key),
   },
 }
