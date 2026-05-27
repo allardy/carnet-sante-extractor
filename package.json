@@ -1,10 +1,12 @@
 {
   "name": "carnet-sante-extractor",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "Desktop app that logs you into Carnet Santé Québec, then captures your health records (PDFs + structured data) into AI-ready Markdown/JSON.",
   "type": "module",
   "main": "out/main/index.js",
+  "license": "MIT",
+  "author": "Yann Allard",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
