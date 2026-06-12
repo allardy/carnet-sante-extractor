@@ -154,6 +154,7 @@ const wireIpc = (): void => {
             rawBytes: 0,
             downloads: 0,
             error: e.error,
+            failedDomains: e.failedDomains,
           } satisfies ExtractProgressPayload),
       )
     } catch (err) {

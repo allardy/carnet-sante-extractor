@@ -21,6 +21,9 @@ export type ProgressCallback = (event: {
   itemsTotal?: number
   itemLabel?: string
   error?: string
+  // Domains that failed to collect but were skipped so the run could finish. Present on the
+  // `done` event when the run completed with partial data.
+  failedDomains?: string[]
 }) => void
 
 export const runExtraction = async (
@@ -36,6 +39,7 @@ export const runExtraction = async (
   const total = collectors.length
   let domainsDone = 0
   let currentDomain: string | undefined
+  const failedDomains: string[] = []
 
   logger.log({ phase: 'extract', status: 'start', message: 'run begin', detail: { rawDir, outputDir } })
 
@@ -148,6 +152,10 @@ export const runExtraction = async (
 
         domainsDone += 1
       } catch (err) {
+        // One domain failing must never abort the run. Log it, record the raw error as a fallback
+        // so the section isn't silently empty, flag the domain as failed, and move on — the same
+        // tolerance the PDF loop above and writeOutput already apply. The run finishes with
+        // whatever collected, and `failedDomains` is surfaced on the `done` event.
         logger.log({
           phase: 'collect',
           domain: c.domain,
@@ -156,7 +164,8 @@ export const runExtraction = async (
           durationMs: Date.now() - t0,
           error: (err as Error).message,
         })
-        throw new Error(`${c.domain}: ${(err as Error).message}`, { cause: err })
+        await writeJson(resolve(rawDataDir, `${c.domain}.error.json`), { error: (err as Error).message })
+        failedDomains.push(c.domain)
       }
     }
 
@@ -184,8 +193,12 @@ export const runExtraction = async (
     )
 
     logger.log({ phase: 'normalize', status: 'ok', message: 'writeOutput done', durationMs: Date.now() - wt0 })
-    onProgress({ phase: 'done', domainsDone, domainsTotal: total })
-    logger.log({ phase: 'extract', status: 'ok', message: 'run complete' })
+    onProgress({ phase: 'done', domainsDone, domainsTotal: total, failedDomains })
+    logger.log({
+      phase: 'extract',
+      status: 'ok',
+      message: failedDomains.length > 0 ? `run complete (failed: ${failedDomains.join(', ')})` : 'run complete',
+    })
   } catch (err) {
     const message = (err as Error).message
 

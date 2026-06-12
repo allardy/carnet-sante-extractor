@@ -12,6 +12,7 @@ type S = {
   normalizingStep: string
   writingStep: string
   doneStep: string
+  partialDoneStep: (failed: string) => string
   collectingStep: (domain: string, done: number, total: number, sub: string) => string
   errorStep: (err: string) => string
   domainName: (key: string) => string
@@ -249,6 +250,8 @@ export const strings: Record<Locale, S> = {
     normalizingStep: 'Normalisation des dossiers…',
     writingStep: 'Écriture du Markdown, JSON et PDFs…',
     doneStep: 'Terminé — votre dossier de santé est prêt. Ouvrez le dossier de sortie.',
+    partialDoneStep: (failed) =>
+      `Terminé avec des données partielles — ces sections n'ont pu être récupérées : ${failed}. Le reste de votre dossier est prêt; réessayez pour compléter.`,
     collectingStep: (domain, done, total, sub) => `Collecte — ${domain} (${done}/${total})${sub}`,
     errorStep: (err) => `Erreur : ${err}`,
     domainName: (key) => domainNames.fr[key] ?? prettyFallback(key),
@@ -265,6 +268,8 @@ export const strings: Record<Locale, S> = {
     normalizingStep: 'Normalizing records…',
     writingStep: 'Writing Markdown, JSON & PDFs…',
     doneStep: 'Done — your health record is ready. Open the output folder.',
+    partialDoneStep: (failed) =>
+      `Done with partial data — these sections could not be retrieved: ${failed}. The rest of your record is ready; try again to fill the gaps.`,
     collectingStep: (domain, done, total, sub) => `Collecting — ${domain} (${done}/${total})${sub}`,
     errorStep: (err) => `Error: ${err}`,
     domainName: (key) => domainNames.en[key] ?? prettyFallback(key),
