@@ -99,11 +99,22 @@ window.api.onExtractProgress((p) => {
       setProgress(97)
       setStep(s().writingStep)
       break
-    case 'done':
+    case 'done': {
+      const failed = p.failedDomains ?? []
+
       setProgress(100, 'done')
-      setStep(s().doneStep, 'done')
-      startEl.textContent = s().extractAgainButton
+
+      if (failed.length > 0) {
+        setStep(s().partialDoneStep(failed.map((d) => s().domainName(d)).join(', ')), 'error')
+        startEl.title = ''
+        startEl.textContent = s().tryAgainButton
+      } else {
+        setStep(s().doneStep, 'done')
+        startEl.textContent = s().extractAgainButton
+      }
+
       break
+    }
     case 'error':
       setProgress(100, 'error')
       setStep(s().errorStep(p.error ?? 'extraction failed'), 'error')

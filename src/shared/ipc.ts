@@ -24,4 +24,7 @@ export type ExtractProgressPayload = {
   rawBytes: number
   downloads: number
   error?: string
+  // On the `done` event: domains that failed to collect but were skipped so the run could finish.
+  // Empty/absent means a fully successful run.
+  failedDomains?: string[]
 }
